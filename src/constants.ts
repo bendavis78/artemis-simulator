@@ -13,10 +13,11 @@ export const MISSION_START_UTC = new Date('2026-04-01T22:35:00Z');
 export const MISSION_DURATION_HOURS = 233; // ~10 days
 
 // Texture paths (Solar System Scope, CC-BY-4.0)
+const base = import.meta.env.BASE_URL;
 export const TEXTURES = {
-  earthDay: '/textures/2k_earth_daymap.jpg',
-  earthNight: '/textures/2k_earth_nightmap.jpg',
-  earthClouds: '/textures/2k_earth_clouds.jpg',
-  earthSpecular: '/textures/2k_earth_specular_map.jpg',
-  moonColor: '/textures/2k_moon.jpg',
+  earthDay: `${base}textures/2k_earth_daymap.jpg`,
+  earthNight: `${base}textures/2k_earth_nightmap.jpg`,
+  earthClouds: `${base}textures/2k_earth_clouds.jpg`,
+  earthSpecular: `${base}textures/2k_earth_specular_map.jpg`,
+  moonColor: `${base}textures/2k_moon.jpg`,
 };
