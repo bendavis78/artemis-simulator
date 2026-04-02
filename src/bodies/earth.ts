@@ -2,20 +2,28 @@ import * as THREE from 'three';
 import { EARTH_RADIUS, TEXTURES } from '../constants';
 
 const vertexShader = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
+
   varying vec2 vUv;
   varying vec3 vNormal;
   varying vec3 vWorldPosition;
 
   void main() {
     vUv = uv;
-    vNormal = normalize(normalMatrix * normal);
+    vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
     vWorldPosition = worldPos.xyz;
     gl_Position = projectionMatrix * viewMatrix * worldPos;
+
+    #include <logdepthbuf_vertex>
   }
 `;
 
 const fragmentShader = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_fragment>
+
   uniform sampler2D dayTexture;
   uniform sampler2D nightTexture;
   uniform sampler2D cloudsTexture;
@@ -51,12 +59,14 @@ const fragmentShader = /* glsl */ `
     float spec = pow(max(dot(normal, halfDir), 0.0), 64.0);
     color += vec3(0.4) * spec * specMask * dayFactor;
 
-    // Atmospheric rim glow
+    // Atmospheric rim glow (only on sunlit side)
     float rim = 1.0 - max(dot(normal, viewDir), 0.0);
     vec3 atmosphere = vec3(0.3, 0.6, 1.0) * pow(rim, 3.0) * 0.6;
-    color += atmosphere * (0.3 + 0.7 * dayFactor);
+    color += atmosphere * dayFactor;
 
     gl_FragColor = vec4(color, 1.0);
+
+    #include <logdepthbuf_fragment>
   }
 `;
 
