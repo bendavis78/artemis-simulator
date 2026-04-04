@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "debug-position": "node scripts/debug-position.cjs",
     "fetch-trajectory": "node scripts/fetch-trajectory.cjs",
     "prebuild": "node scripts/fetch-trajectory.cjs",
     "build": "tsc && vite build",

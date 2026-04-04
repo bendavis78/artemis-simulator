@@ -1,83 +1,83 @@
 import * as THREE from 'three';
-import { SCALE } from '../constants';
+import { MOON_EPHEMERIS } from './moon-ephemeris';
 
-/**
- * Compute the Moon's position in ECI coordinates using Schlyter's
- * simplified lunar ephemeris. Accurate to ~1 arcmin, sufficient for
- * visualization over a 10-day mission window.
- *
- * Returns position in scene units (1 unit = 1000 km).
- */
-export function getMoonPosition(date: Date): THREE.Vector3 {
-  const d = daysSinceJ2000(date);
+export interface MoonPoint {
+  met: number;
+  position: THREE.Vector3;
+}
 
-  // Orbital elements (degrees, except a in Earth radii)
-  const N = normalizeAngle(125.1228 - 0.0529538083 * d); // long. ascending node
-  const i = 5.1454; // inclination
-  const w = normalizeAngle(318.0634 + 0.1643573223 * d); // arg. of perigee
-  const a = 60.2666; // semi-major axis in Earth radii
-  const e = 0.054900; // eccentricity
-  const M = normalizeAngle(115.3654 + 13.0649929509 * d); // mean anomaly
+export class MoonInterpolator {
+  private metValues: number[];
+  private positions: THREE.Vector3[];
+  private curve: THREE.CatmullRomCurve3;
+  private numPoints: number;
 
-  // Solve Kepler's equation: E - e*sin(E) = M
-  const Mrad = M * (Math.PI / 180);
-  let E = Mrad + e * Math.sin(Mrad) * (1 + e * Math.cos(Mrad));
-  for (let iter = 0; iter < 10; iter++) {
-    const dE = (E - e * Math.sin(E) - Mrad) / (1 - e * Math.cos(E));
-    E -= dE;
-    if (Math.abs(dE) < 1e-8) break;
+  constructor() {
+    const points: MoonPoint[] = MOON_EPHEMERIS.map((row) => ({
+      met: row[0],
+      position: new THREE.Vector3(row[1], row[3], -row[2]),
+    }));
+
+    this.metValues = points.map((p) => p.met);
+    this.positions = points.map((p) => p.position.clone());
+    this.numPoints = points.length;
+
+    const curvePoints = this.positions.map((p) => p.clone());
+    this.curve = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 0.5);
   }
 
-  // Position in orbital plane
-  const xv = a * (Math.cos(E) - e);
-  const yv = a * Math.sqrt(1 - e * e) * Math.sin(E);
+  getPosition(met: number): THREE.Vector3 {
+    const clamped = Math.max(
+      this.metValues[0],
+      Math.min(met, this.metValues[this.metValues.length - 1])
+    );
 
-  // True anomaly and distance
-  const v = Math.atan2(yv, xv);
-  const r = Math.sqrt(xv * xv + yv * yv); // in Earth radii
+    let i = 0;
+    for (; i < this.metValues.length - 1; i++) {
+      if (this.metValues[i + 1] >= clamped) break;
+    }
 
-  // Convert to ecliptic coordinates
-  const Nrad = N * (Math.PI / 180);
-  const irad = i * (Math.PI / 180);
-  const wrad = w * (Math.PI / 180);
+    const t0 = this.metValues[i];
+    const t1 = this.metValues[Math.min(i + 1, this.metValues.length - 1)];
+    const segFrac = t1 > t0 ? (clamped - t0) / (t1 - t0) : 0;
 
-  const cosN = Math.cos(Nrad);
-  const sinN = Math.sin(Nrad);
-  const cosI = Math.cos(irad);
-  const sinI = Math.sin(irad);
-  const cosVW = Math.cos(v + wrad);
-  const sinVW = Math.sin(v + wrad);
+    const t = (i + segFrac) / (this.numPoints - 1);
+    return this.curve.getPoint(t);
+  }
 
-  const xEcl = r * (cosN * cosVW - sinN * sinVW * cosI);
-  const yEcl = r * (sinN * cosVW + cosN * sinVW * cosI);
-  const zEcl = r * sinVW * sinI;
+  getPoints(segments: number = 500): THREE.Vector3[] {
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= segments; i++) {
+      points.push(this.curve.getPoint(i / segments));
+    }
+    return points;
+  }
 
-  // Convert from Earth radii to km, then to scene units
-  const earthRadiusKm = 6371;
-  const xKm = xEcl * earthRadiusKm;
-  const yKm = yEcl * earthRadiusKm;
-  const zKm = zEcl * earthRadiusKm;
-
-  // Rotate from ecliptic to equatorial (obliquity ε)
-  const obliquity = 23.4393 * (Math.PI / 180);
-  const cosObl = Math.cos(obliquity);
-  const sinObl = Math.sin(obliquity);
-
-  const xEq = xKm;
-  const yEq = yKm * cosObl - zKm * sinObl;
-  const zEq = yKm * sinObl + zKm * cosObl;
-
-  // Three.js: X=right, Y=up, Z=toward camera
-  // ECI: X=vernal equinox, Y=in equatorial plane, Z=north pole
-  // Map ECI (x,y,z) -> Three.js (x, z, -y) so Y=up=north pole
-  return new THREE.Vector3(xEq * SCALE, zEq * SCALE, -yEq * SCALE);
+  getMetRange(): { start: number; end: number } {
+    return {
+      start: this.metValues[0],
+      end: this.metValues[this.metValues.length - 1],
+    };
+  }
 }
 
-function daysSinceJ2000(date: Date): number {
-  const j2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
-  return (date.getTime() - j2000) / 86400000;
+let moonInterpolator: MoonInterpolator | null = null;
+
+function getMoonInterpolator(): MoonInterpolator {
+  if (!moonInterpolator) {
+    moonInterpolator = new MoonInterpolator();
+  }
+  return moonInterpolator;
 }
 
-function normalizeAngle(deg: number): number {
-  return ((deg % 360) + 360) % 360;
+export function getMoonPosition(met: number): THREE.Vector3 {
+  return getMoonInterpolator().getPosition(met);
+}
+
+export function getMoonOrbitPoints(segments?: number): THREE.Vector3[] {
+  return getMoonInterpolator().getPoints(segments);
+}
+
+export function getMoonMetRange(): { start: number; end: number } {
+  return getMoonInterpolator().getMetRange();
 }

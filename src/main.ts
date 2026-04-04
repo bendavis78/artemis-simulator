@@ -4,7 +4,7 @@ import { createMoon } from './bodies/moon';
 import { createSunLight } from './bodies/sun';
 import { createSpacecraft } from './bodies/spacecraft';
 import { getSunDirection } from './astro/sun-position';
-import { getMoonPosition } from './astro/moon-position';
+import { getMoonPosition, getMoonOrbitPoints } from './astro/moon-position';
 import { generateTrajectory } from './trajectory/data';
 import { TrajectoryInterpolator } from './trajectory/interpolate';
 import { createFlightPath } from './trajectory/path';
@@ -13,7 +13,7 @@ import { CameraController } from './controls/camera';
 import { Timeline } from './controls/timeline';
 import { createOverlay, updateOverlay } from './ui/overlay';
 import { WaypointEditor } from './ui/waypoint-editor';
-import { EARTH_RADIUS, MOON_RADIUS, MISSION_START_UTC } from './constants';
+import { EARTH_RADIUS, MOON_RADIUS } from './constants';
 
 // --- Loading Manager ---
 const loadingManager = new THREE.LoadingManager();
@@ -101,15 +101,8 @@ const moonWireframeMat = new THREE.MeshBasicMaterial({
 
 // --- Moon Orbit Path ---
 {
-  const points: THREE.Vector3[] = [];
-  const periodMs = 27.3 * 24 * 3600000;
-  const centerMs = MISSION_START_UTC.getTime();
-  const steps = 128;
-  for (let i = 0; i <= steps; i++) {
-    const t = new Date(centerMs - periodMs / 2 + (i / steps) * periodMs);
-    points.push(getMoonPosition(t));
-  }
-  const orbitGeom = new THREE.BufferGeometry().setFromPoints(points);
+  const orbitPoints = getMoonOrbitPoints(128);
+  const orbitGeom = new THREE.BufferGeometry().setFromPoints(orbitPoints);
   const orbitMat = new THREE.LineBasicMaterial({ color: 0x555566, opacity: 0.5, transparent: true });
   const moonOrbitLine = new THREE.Line(orbitGeom, orbitMat);
   moonOrbitLine.visible = false;
@@ -230,7 +223,7 @@ function animate() {
   earthMesh.rotation.y = getGreenwichSiderealAngle(simDate);
 
   // Update Moon position
-  const moonPos = getMoonPosition(simDate);
+  const moonPos = getMoonPosition(met);
   moonMesh.position.copy(moonPos);
   // Tidal locking: Moon's near side faces Earth
   moonMesh.lookAt(0, 0, 0);
