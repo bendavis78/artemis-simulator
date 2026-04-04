@@ -5,12 +5,10 @@ import { MISSION_DURATION_HOURS } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onEditModeToggle, onResetWaypoints }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
-    onEditModeToggle: (enabled: boolean) => void;
-    onResetWaypoints: () => void;
   },
 ): HTMLDivElement {
   const overlay = document.createElement('div');
@@ -216,8 +214,6 @@ export function createOverlay(
             <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbit-toggle"> Moon Orbit</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="stars-toggle" checked> Stars</label>
-            <label style="margin-top: 6px;"><input type="checkbox" id="edit-mode-toggle"> Edit Waypoints</label>
-            <button class="btn" id="reset-waypoints-btn" style="margin-top: 8px; font-size: 0.9em; width: 100%;">Reset Waypoints</button>
           </div>
           <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
         </div>
@@ -301,23 +297,10 @@ export function createOverlay(
     onStarsToggle(starsToggle.checked);
   });
 
-  const editModeToggle = overlay.querySelector('#edit-mode-toggle') as HTMLInputElement;
-  editModeToggle.checked = savedSettings.editMode ?? false;
-  editModeToggle.addEventListener('change', () => {
-    saveSetting('editMode', editModeToggle.checked);
-    onEditModeToggle(editModeToggle.checked);
-  });
-
   // Apply persisted settings to scene on load
   if (wireframeToggle.checked) onWireframeToggle(true);
   if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
   if (!starsToggle.checked) onStarsToggle(false);
-  if (editModeToggle.checked) onEditModeToggle(true);
-
-  const resetBtn = overlay.querySelector('#reset-waypoints-btn') as HTMLButtonElement;
-  resetBtn.addEventListener('click', () => {
-    onResetWaypoints();
-  });
 
   return overlay;
 }

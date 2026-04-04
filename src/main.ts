@@ -8,11 +8,9 @@ import { getMoonPosition, getMoonOrbitPoints } from './astro/moon-position';
 import { generateTrajectory } from './trajectory/data';
 import { TrajectoryInterpolator } from './trajectory/interpolate';
 import { createFlightPath } from './trajectory/path';
-import { loadWaypoints, resetWaypoints } from './trajectory/waypoints';
 import { CameraController } from './controls/camera';
 import { Timeline } from './controls/timeline';
 import { createOverlay, updateOverlay } from './ui/overlay';
-import { WaypointEditor } from './ui/waypoint-editor';
 import { EARTH_RADIUS, MOON_RADIUS } from './constants';
 
 // --- Loading Manager ---
@@ -112,27 +110,11 @@ const moonWireframeMat = new THREE.MeshBasicMaterial({
 const moonOrbitLine = scene.getObjectByName('moonOrbit') as THREE.Line;
 
 // --- Trajectory ---
-let editableWaypoints = loadWaypoints();
-let trajectoryPoints = generateTrajectory(editableWaypoints);
+let trajectoryPoints = generateTrajectory();
 let interpolator = new TrajectoryInterpolator(trajectoryPoints);
 let flightPath = createFlightPath(interpolator);
 scene.add(flightPath.fullPath);
 scene.add(flightPath.progressPath);
-
-function rebuildTrajectory(): void {
-  // Remove old paths
-  scene.remove(flightPath.fullPath);
-  scene.remove(flightPath.progressPath);
-  flightPath.fullPath.geometry.dispose();
-  flightPath.progressPath.geometry.dispose();
-
-  // Rebuild
-  trajectoryPoints = generateTrajectory(editableWaypoints);
-  interpolator = new TrajectoryInterpolator(trajectoryPoints);
-  flightPath = createFlightPath(interpolator);
-  scene.add(flightPath.fullPath);
-  scene.add(flightPath.progressPath);
-}
 
 // --- Spacecraft ---
 const { group: spacecraftGroup, marker: spacecraftMarker } =
@@ -142,10 +124,6 @@ scene.add(spacecraftMarker);
 
 // --- Timeline ---
 const timeline = new Timeline();
-
-// --- Waypoint Editor ---
-const waypointEditor = new WaypointEditor(scene, camera, renderer.domElement, editableWaypoints);
-waypointEditor.onUpdate = rebuildTrajectory;
 
 // --- UI ---
 createOverlay(timeline, cameraController, {
@@ -162,14 +140,6 @@ createOverlay(timeline, cameraController, {
   },
   onStarsToggle(enabled) {
     stars.visible = enabled;
-  },
-  onEditModeToggle(enabled) {
-    waypointEditor.setEnabled(enabled);
-  },
-  onResetWaypoints() {
-    editableWaypoints = resetWaypoints();
-    waypointEditor.setWaypoints(editableWaypoints);
-    rebuildTrajectory();
   },
 });
 
@@ -249,9 +219,6 @@ function animate() {
   // Update flight path progress
   const curveFrac = interpolator.getCurveFraction(met);
   flightPath.update(curveFrac);
-
-  // Update waypoint editor
-  waypointEditor.update();
 
   // Update body positions for camera controller
   cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));
