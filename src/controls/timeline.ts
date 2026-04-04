@@ -63,19 +63,20 @@ export class Timeline {
 
   getMissionPhase(): string {
     const met = this.state.currentMET;
-    if (met < 0.15) return 'Launch / Ascent';
-    if (met < 2) return 'LEO Parking Orbit';
-    if (met < 4) return 'Orbit Raising Burns';
-    if (met < 5) return 'ICPS Separation';
-    if (met < 25.5) return 'High Earth Orbit';
-    if (met < 26) return 'Trans-Lunar Injection';
-    if (met < 120) return 'Trans-Lunar Coast';
-    if (met < 130) return 'Lunar Approach';
-    if (met < 138) return 'Lunar Flyby (Far Side)';
-    if (met < 145) return 'Lunar Departure';
-    if (met < 228) return 'Trans-Earth Coast';
-    if (met < 231) return 'Earth Approach';
-    if (met < 233) return 'Entry & Descent';
+    if (met < 0.33) return 'Launch / Ascent';
+    if (met < 0.83) return 'Earth Orbit';
+    if (met < 1.8) return 'Perigee Raise';
+    if (met < 3.4) return 'Apogee Raise';
+    if (met < 4.83) return 'ICPS Separation';
+    if (met < 12.92) return 'High Earth Orbit';
+    if (met < 25.23) return 'Perigee Raise Burn';
+    if (met < 25.32) return 'Trans-Lunar Injection';
+    if (met < 120.52) return 'Trans-Lunar Coast';
+    if (met < 121) return 'Lunar Flyby';
+    if (met < 138.87) return 'Lunar Departure';
+    if (met < 217.15) return 'Trans-Earth Coast';
+    if (met < 217.48) return 'Crew Module Separation';
+    if (met < 217.7) return 'Entry & Descent';
     return 'Splashdown';
   }
 }

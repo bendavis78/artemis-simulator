@@ -303,11 +303,16 @@ export class WaypointEditor {
     const dist = wp.position.length();
     const displayId = wp.id > 100 ? '—' : String(wp.id);
 
+    const days = Math.floor(wp.met / 24);
+    const hours = Math.floor(wp.met % 24);
+    const mins = Math.floor((wp.met % 1) * 60);
+    const metStr = `Day ${days} / ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
     this.infoPanel.innerHTML = `
       <div style="color: #ff4488; font-weight: bold; margin-bottom: 8px;">
         Stage ${displayId}: ${wp.label}
       </div>
-      <div style="margin-bottom: 4px;">MET: ${wp.met.toFixed(2)}h</div>
+      <div style="margin-bottom: 4px;">${metStr}</div>
       <div style="color: #999; font-size: 11px;">
         X: ${wp.position.x.toFixed(2)}<br>
         Y: ${wp.position.y.toFixed(2)}<br>

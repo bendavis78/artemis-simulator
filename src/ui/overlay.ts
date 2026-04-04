@@ -190,7 +190,7 @@ export function createOverlay(
 
     <div class="bottom-panel">
       <div class="time-row">
-        <span class="met" id="met">MET 000:00:00</span>
+        <span class="met" id="met">Day 0 / 00:00</span>
         <span class="utc" id="utc">—</span>
       </div>
 
@@ -335,11 +335,11 @@ export function updateOverlay(
   }
 ): void {
   const met = timeline.state.currentMET;
-  const h = Math.floor(met);
-  const m = Math.floor((met - h) * 60);
-  const s = Math.floor(((met - h) * 60 - m) * 60);
+  const days = Math.floor(met / 24);
+  const hours = Math.floor(met % 24);
+  const mins = Math.floor((met % 1) * 60);
 
-  const metStr = `MET ${String(h).padStart(3, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const metStr = `Day ${days} / ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
   document.getElementById('met')!.textContent = metStr;
 
   const simDate = timeline.getSimDate();
