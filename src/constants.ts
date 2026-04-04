@@ -10,7 +10,7 @@ export const EARTH_OBLIQUITY = 23.4393 * (Math.PI / 180);
 
 // Mission timeline
 export const MISSION_START_UTC = new Date('2026-04-01T22:35:00Z');
-export const MISSION_DURATION_HOURS = 233; // ~10 days
+export const MISSION_DURATION_HOURS = 232.5; // Horizons data + re-entry extension
 
 // Texture paths (Solar System Scope, CC-BY-4.0)
 const base = import.meta.env.BASE_URL;

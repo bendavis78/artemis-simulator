@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import type { TrajectoryInterpolator } from './interpolate';
 
 /**
@@ -7,28 +10,40 @@ import type { TrajectoryInterpolator } from './interpolate';
  * - Progress path (up to current MET) as a bright solid line
  */
 export function createFlightPath(interpolator: TrajectoryInterpolator): {
-  fullPath: THREE.Line;
-  progressPath: THREE.Line;
+  fullPath: Line2;
+  progressPath: Line2;
   update: (fraction: number) => void;
 } {
   const allPoints = interpolator.getCurvePoints(2000);
 
+  // Flatten positions for LineGeometry
+  const positions = new Float32Array(allPoints.length * 3);
+  for (let i = 0; i < allPoints.length; i++) {
+    positions[i * 3] = allPoints[i].x;
+    positions[i * 3 + 1] = allPoints[i].y;
+    positions[i * 3 + 2] = allPoints[i].z;
+  }
+
   // Full path - faint dashed line
-  const fullGeom = new THREE.BufferGeometry().setFromPoints(allPoints);
-  const fullMat = new THREE.LineDashedMaterial({
-    color: 0x334466,
+  const fullGeom = new LineGeometry();
+  fullGeom.setPositions(positions);
+  const fullMat = new LineMaterial({
+    color: 0x4a6a9f,
+    linewidth: 1.5,
+    dashed: true,
     dashSize: 1,
     gapSize: 0.5,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.5,
+    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
   });
-  const fullPath = new THREE.Line(fullGeom, fullMat);
+  const fullPath = new Line2(fullGeom, fullMat);
   fullPath.computeLineDistances();
   fullPath.name = 'flightPathFull';
 
-  // Progress path - bright line showing where the spacecraft has been
-  // We'll use a draw range to show only part of it
-  const progressGeom = new THREE.BufferGeometry().setFromPoints(allPoints);
+  // Progress path - bright colored line
+  const progressGeom = new LineGeometry();
+  progressGeom.setPositions(positions);
 
   // Create color array for gradient effect
   const colors = new Float32Array(allPoints.length * 3);
@@ -36,33 +51,40 @@ export function createFlightPath(interpolator: TrajectoryInterpolator): {
     const frac = i / (allPoints.length - 1);
     // Blue near Earth -> gold near Moon -> green on return
     if (frac < 0.45) {
-      // Blue to gold
       const t = frac / 0.45;
-      colors[i * 3] = 0.3 + t * 0.7; // R
-      colors[i * 3 + 1] = 0.5 + t * 0.3; // G
-      colors[i * 3 + 2] = 1.0 - t * 0.8; // B
+      colors[i * 3] = 0.3 + t * 0.7;
+      colors[i * 3 + 1] = 0.5 + t * 0.3;
+      colors[i * 3 + 2] = 1.0 - t * 0.8;
     } else {
-      // Gold to green
       const t = (frac - 0.45) / 0.55;
-      colors[i * 3] = 1.0 - t * 0.7; // R
-      colors[i * 3 + 1] = 0.8 + t * 0.2; // G
-      colors[i * 3 + 2] = 0.2 + t * 0.3; // B
+      colors[i * 3] = 1.0 - t * 0.7;
+      colors[i * 3 + 1] = 0.8 + t * 0.2;
+      colors[i * 3 + 2] = 0.2 + t * 0.3;
     }
   }
-  progressGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  progressGeom.setColors(colors);
 
-  const progressMat = new THREE.LineBasicMaterial({
+  const progressMat = new LineMaterial({
     vertexColors: true,
+    linewidth: 3,
     transparent: true,
     opacity: 0.9,
+    resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
   });
-  const progressPath = new THREE.Line(progressGeom, progressMat);
+  const progressPath = new Line2(progressGeom, progressMat);
   progressPath.name = 'flightPathProgress';
 
   function update(fraction: number) {
-    const count = Math.floor(fraction * allPoints.length);
-    progressPath.geometry.setDrawRange(0, count);
+    const count = Math.max(1, Math.floor(fraction * (allPoints.length - 1)));
+    progressPath.geometry.instanceCount = count;
   }
+
+  // Update resolution on resize
+  window.addEventListener('resize', () => {
+    const res = new THREE.Vector2(window.innerWidth, window.innerHeight);
+    fullMat.resolution.copy(res);
+    progressMat.resolution.copy(res);
+  });
 
   return { fullPath, progressPath, update };
 }

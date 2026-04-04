@@ -5,6 +5,13 @@ import { MISSION_DURATION_HOURS } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onEditModeToggle, onResetWaypoints }: {
+    onWireframeToggle: (enabled: boolean) => void;
+    onMoonOrbitToggle: (enabled: boolean) => void;
+    onStarsToggle: (enabled: boolean) => void;
+    onEditModeToggle: (enabled: boolean) => void;
+    onResetWaypoints: () => void;
+  },
 ): HTMLDivElement {
   const overlay = document.createElement('div');
   overlay.id = 'overlay';
@@ -131,6 +138,49 @@ export function createOverlay(
       }
       .info-row span { white-space: nowrap; }
       .info-value { color: #999; }
+
+      .settings-wrap {
+        position: relative;
+        margin-left: auto;
+      }
+      .settings-toggle {
+        width: 28px;
+        height: 28px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 50%;
+        color: #888;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+      .settings-toggle:hover { background: rgba(255,255,255,0.15); color: #ccc; }
+
+      .settings-panel {
+        position: absolute;
+        bottom: 36px;
+        right: 0;
+        background: rgba(0,0,0,0.85);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 0.75em;
+        display: none;
+        white-space: nowrap;
+      }
+      .settings-panel.open { display: block; }
+      .settings-panel label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        color: #aaa;
+      }
+      .settings-panel label:hover { color: #fff; }
+      .settings-panel input[type="checkbox"] { accent-color: #4a9eff; }
     </style>
 
     <div class="top-bar">
@@ -161,6 +211,16 @@ export function createOverlay(
         <button class="btn focus-btn active" data-focus="earth">Earth</button>
         <button class="btn focus-btn" data-focus="moon">Moon</button>
         <button class="btn focus-btn" data-focus="orion">Orion</button>
+        <div class="settings-wrap">
+          <div class="settings-panel" id="settings-panel">
+            <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbit-toggle"> Moon Orbit</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="stars-toggle" checked> Stars</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="edit-mode-toggle"> Edit Waypoints</label>
+            <button class="btn" id="reset-waypoints-btn" style="margin-top: 8px; font-size: 0.9em; width: 100%;">Reset Waypoints</button>
+          </div>
+          <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
+        </div>
       </div>
 
       <div class="info-row">
@@ -202,6 +262,61 @@ export function createOverlay(
       overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
     });
+  });
+
+  // Settings gear
+  const settingsToggle = overlay.querySelector('#settings-toggle') as HTMLButtonElement;
+  const settingsPanel = overlay.querySelector('#settings-panel') as HTMLDivElement;
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('open');
+  });
+
+  const SETTINGS_KEY = 'artemis-settings-v1';
+  const savedSettings = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Record<string, boolean>;
+
+  function saveSetting(key: string, value: boolean): void {
+    const current = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Record<string, boolean>;
+    current[key] = value;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(current));
+  }
+
+  const wireframeToggle = overlay.querySelector('#wireframe-toggle') as HTMLInputElement;
+  wireframeToggle.checked = savedSettings.wireframe ?? false;
+  wireframeToggle.addEventListener('change', () => {
+    saveSetting('wireframe', wireframeToggle.checked);
+    onWireframeToggle(wireframeToggle.checked);
+  });
+
+  const moonOrbitToggle = overlay.querySelector('#moon-orbit-toggle') as HTMLInputElement;
+  moonOrbitToggle.checked = savedSettings.moonOrbit ?? false;
+  moonOrbitToggle.addEventListener('change', () => {
+    saveSetting('moonOrbit', moonOrbitToggle.checked);
+    onMoonOrbitToggle(moonOrbitToggle.checked);
+  });
+
+  const starsToggle = overlay.querySelector('#stars-toggle') as HTMLInputElement;
+  starsToggle.checked = savedSettings.stars ?? true;
+  starsToggle.addEventListener('change', () => {
+    saveSetting('stars', starsToggle.checked);
+    onStarsToggle(starsToggle.checked);
+  });
+
+  const editModeToggle = overlay.querySelector('#edit-mode-toggle') as HTMLInputElement;
+  editModeToggle.checked = savedSettings.editMode ?? false;
+  editModeToggle.addEventListener('change', () => {
+    saveSetting('editMode', editModeToggle.checked);
+    onEditModeToggle(editModeToggle.checked);
+  });
+
+  // Apply persisted settings to scene on load
+  if (wireframeToggle.checked) onWireframeToggle(true);
+  if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
+  if (!starsToggle.checked) onStarsToggle(false);
+  if (editModeToggle.checked) onEditModeToggle(true);
+
+  const resetBtn = overlay.querySelector('#reset-waypoints-btn') as HTMLButtonElement;
+  resetBtn.addEventListener('click', () => {
+    onResetWaypoints();
   });
 
   return overlay;

@@ -8,10 +8,12 @@ import { getMoonPosition } from './astro/moon-position';
 import { generateTrajectory } from './trajectory/data';
 import { TrajectoryInterpolator } from './trajectory/interpolate';
 import { createFlightPath } from './trajectory/path';
+import { loadWaypoints, resetWaypoints } from './trajectory/waypoints';
 import { CameraController } from './controls/camera';
 import { Timeline } from './controls/timeline';
 import { createOverlay, updateOverlay } from './ui/overlay';
-import { EARTH_RADIUS } from './constants';
+import { WaypointEditor } from './ui/waypoint-editor';
+import { EARTH_RADIUS, MOON_RADIUS, MISSION_START_UTC } from './constants';
 
 // --- Loading Manager ---
 const loadingManager = new THREE.LoadingManager();
@@ -61,7 +63,8 @@ const starMat = new THREE.PointsMaterial({
   size: 0.8,
   sizeAttenuation: true,
 });
-scene.add(new THREE.Points(starGeom, starMat));
+const stars = new THREE.Points(starGeom, starMat);
+scene.add(stars);
 
 // --- Camera ---
 const cameraController = new CameraController(renderer.domElement);
@@ -83,13 +86,60 @@ scene.add(earthMesh);
 const moonMesh = createMoon(loadingManager);
 scene.add(moonMesh);
 
+// Low-res geometries for wireframe mode
+const earthHighResGeom = earthMesh.geometry;
+const earthLowResGeom = new THREE.SphereGeometry(EARTH_RADIUS, 32, 16);
+const moonHighResGeom = moonMesh.geometry;
+const moonLowResGeom = new THREE.SphereGeometry(MOON_RADIUS, 32, 16);
+const moonNormalMat = moonMesh.material as THREE.MeshStandardMaterial;
+const moonWireframeMat = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  wireframe: true,
+  transparent: true,
+  opacity: 0.05,
+});
+
+// --- Moon Orbit Path ---
+{
+  const points: THREE.Vector3[] = [];
+  const periodMs = 27.3 * 24 * 3600000;
+  const centerMs = MISSION_START_UTC.getTime();
+  const steps = 128;
+  for (let i = 0; i <= steps; i++) {
+    const t = new Date(centerMs - periodMs / 2 + (i / steps) * periodMs);
+    points.push(getMoonPosition(t));
+  }
+  const orbitGeom = new THREE.BufferGeometry().setFromPoints(points);
+  const orbitMat = new THREE.LineBasicMaterial({ color: 0x555566, opacity: 0.5, transparent: true });
+  const moonOrbitLine = new THREE.Line(orbitGeom, orbitMat);
+  moonOrbitLine.visible = false;
+  moonOrbitLine.name = 'moonOrbit';
+  scene.add(moonOrbitLine);
+}
+const moonOrbitLine = scene.getObjectByName('moonOrbit') as THREE.Line;
+
 // --- Trajectory ---
-const trajectoryPoints = generateTrajectory();
-const interpolator = new TrajectoryInterpolator(trajectoryPoints);
-const { fullPath, progressPath, update: updateFlightPath } =
-  createFlightPath(interpolator);
-scene.add(fullPath);
-scene.add(progressPath);
+let editableWaypoints = loadWaypoints();
+let trajectoryPoints = generateTrajectory(editableWaypoints);
+let interpolator = new TrajectoryInterpolator(trajectoryPoints);
+let flightPath = createFlightPath(interpolator);
+scene.add(flightPath.fullPath);
+scene.add(flightPath.progressPath);
+
+function rebuildTrajectory(): void {
+  // Remove old paths
+  scene.remove(flightPath.fullPath);
+  scene.remove(flightPath.progressPath);
+  flightPath.fullPath.geometry.dispose();
+  flightPath.progressPath.geometry.dispose();
+
+  // Rebuild
+  trajectoryPoints = generateTrajectory(editableWaypoints);
+  interpolator = new TrajectoryInterpolator(trajectoryPoints);
+  flightPath = createFlightPath(interpolator);
+  scene.add(flightPath.fullPath);
+  scene.add(flightPath.progressPath);
+}
 
 // --- Spacecraft ---
 const { group: spacecraftGroup, marker: spacecraftMarker } =
@@ -100,8 +150,35 @@ scene.add(spacecraftMarker);
 // --- Timeline ---
 const timeline = new Timeline();
 
+// --- Waypoint Editor ---
+const waypointEditor = new WaypointEditor(scene, camera, renderer.domElement, editableWaypoints);
+waypointEditor.onUpdate = rebuildTrajectory;
+
 // --- UI ---
-createOverlay(timeline, cameraController);
+createOverlay(timeline, cameraController, {
+  onWireframeToggle(enabled) {
+    earthMaterial.wireframe = enabled;
+    earthMaterial.uniforms.uWireframe.value = enabled ? 1.0 : 0.0;
+    earthMesh.geometry = enabled ? earthLowResGeom : earthHighResGeom;
+
+    moonMesh.material = enabled ? moonWireframeMat : moonNormalMat;
+    moonMesh.geometry = enabled ? moonLowResGeom : moonHighResGeom;
+  },
+  onMoonOrbitToggle(enabled) {
+    moonOrbitLine.visible = enabled;
+  },
+  onStarsToggle(enabled) {
+    stars.visible = enabled;
+  },
+  onEditModeToggle(enabled) {
+    waypointEditor.setEnabled(enabled);
+  },
+  onResetWaypoints() {
+    editableWaypoints = resetWaypoints();
+    waypointEditor.setWaypoints(editableWaypoints);
+    rebuildTrajectory();
+  },
+});
 
 // --- Click to focus ---
 renderer.domElement.addEventListener('dblclick', (event) => {
@@ -145,6 +222,10 @@ function animate() {
   sunLight.position.copy(sunDir.clone().multiplyScalar(1000));
   earthMaterial.uniforms.sunDirection.value.copy(sunDir);
 
+  // Update log depth buffer uniform
+  earthMaterial.uniforms.logDepthBufFC.value =
+    2.0 / (Math.log(camera.far + 1.0) / Math.LN2);
+
   // Update Earth rotation
   earthMesh.rotation.y = getGreenwichSiderealAngle(simDate);
 
@@ -174,7 +255,10 @@ function animate() {
 
   // Update flight path progress
   const curveFrac = interpolator.getCurveFraction(met);
-  updateFlightPath(curveFrac);
+  flightPath.update(curveFrac);
+
+  // Update waypoint editor
+  waypointEditor.update();
 
   // Update body positions for camera controller
   cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));

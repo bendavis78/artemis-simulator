@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "fetch-trajectory": "node scripts/fetch-trajectory.cjs",
+    "prebuild": "node scripts/fetch-trajectory.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

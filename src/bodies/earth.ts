@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { EARTH_RADIUS, TEXTURES } from '../constants';
 
 const vertexShader = /* glsl */ `
-  #include <common>
-  #include <logdepthbuf_pars_vertex>
+  #ifdef USE_LOGDEPTHBUF
+    varying float vFragDepth;
+    uniform float logDepthBufFC;
+  #endif
 
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -16,25 +18,38 @@ const vertexShader = /* glsl */ `
     vWorldPosition = worldPos.xyz;
     gl_Position = projectionMatrix * viewMatrix * worldPos;
 
-    #include <logdepthbuf_vertex>
+    #ifdef USE_LOGDEPTHBUF
+      vFragDepth = 1.0 + gl_Position.w;
+    #endif
   }
 `;
 
 const fragmentShader = /* glsl */ `
-  #include <common>
-  #include <logdepthbuf_pars_fragment>
+  #ifdef USE_LOGDEPTHBUF
+    varying float vFragDepth;
+    uniform float logDepthBufFC;
+  #endif
 
   uniform sampler2D dayTexture;
   uniform sampler2D nightTexture;
   uniform sampler2D cloudsTexture;
   uniform sampler2D specularTexture;
   uniform vec3 sunDirection;
+  uniform float uWireframe;
 
   varying vec2 vUv;
   varying vec3 vNormal;
   varying vec3 vWorldPosition;
 
   void main() {
+    if (uWireframe > 0.5) {
+      gl_FragColor = vec4(1.0, 1.0, 1.0, 0.05);
+      #ifdef USE_LOGDEPTHBUF
+        gl_FragDepth = log2(vFragDepth) * logDepthBufFC * 0.5;
+      #endif
+      return;
+    }
+
     vec3 normal = normalize(vNormal);
     float NdotL = dot(normal, sunDirection);
 
@@ -66,7 +81,9 @@ const fragmentShader = /* glsl */ `
 
     gl_FragColor = vec4(color, 1.0);
 
-    #include <logdepthbuf_fragment>
+    #ifdef USE_LOGDEPTHBUF
+      gl_FragDepth = log2(vFragDepth) * logDepthBufFC * 0.5;
+    #endif
   }
 `;
 
@@ -88,12 +105,18 @@ export function createEarth(loadingManager: THREE.LoadingManager): {
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
+    transparent: true,
+    defines: {
+      USE_LOGDEPTHBUF: '',
+    },
     uniforms: {
       dayTexture: { value: dayTex },
       nightTexture: { value: nightTex },
       cloudsTexture: { value: cloudsTex },
       specularTexture: { value: specTex },
       sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+      logDepthBufFC: { value: 0 },
+      uWireframe: { value: 0.0 },
     },
   });
 
