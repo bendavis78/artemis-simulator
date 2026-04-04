@@ -83,10 +83,14 @@ export class TrajectoryInterpolator {
   }
 
   /**
-   * Get all curve points for visualization.
+   * Get all curve points for visualization (arc-length parameterized).
    */
   getCurvePoints(segments: number = 2000): THREE.Vector3[] {
-    return this.curve.getPoints(segments);
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= segments; i++) {
+      points.push(this.curve.getPointAt(i / segments));
+    }
+    return points;
   }
 
   /**
