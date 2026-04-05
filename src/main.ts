@@ -254,20 +254,18 @@ function animate() {
   const curveFrac = interpolator.getCurveFraction(met);
   flightPath.update(curveFrac);
 
+  // Update body positions and camera first so controls.target is current
+  cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));
+  cameraController.updateBodyPosition('moon', moonPos);
+  cameraController.updateBodyPosition('orion', scPos);
+  cameraController.update();
+
   // Update reference plane grid resolution and distance fade based on camera
   const focusPos = cameraController.controls.target;
   const camDistFromFocus = camera.position.distanceTo(focusPos);
   updateIcrfPlane(camDistFromFocus, camera.position, focusPos);
   updateEclipticPlane(camDistFromFocus, camera.position, focusPos);
   updateMoonOrbitalPlane(camDistFromFocus, camera.position, focusPos);
-
-  // Update body positions for camera controller
-  cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));
-  cameraController.updateBodyPosition('moon', moonPos);
-  cameraController.updateBodyPosition('orion', scPos);
-
-  // Update camera
-  cameraController.update();
 
   // Update UI
   const distEarth = scPos.length() - EARTH_RADIUS;
