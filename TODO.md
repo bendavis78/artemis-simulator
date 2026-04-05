@@ -6,14 +6,14 @@
 
 # Small features
 
-- [ ] Add "Live" button next to play/pause, goes to current time & play @ 1x
-- [ ] Extend grid "infinitely" (ie, should appear to go off into infinity, in reality can stop once the fade effect makes it invisible)
+- [x] Add "Live" button next to play/pause, goes to current time & play @ 1x
 - [ ] Arrow keys can control timeline, jump to intervals based on speed selection. If speed is 1x, jump to 15-minute intervals
 - [ ] Ensure earth & moon textures are geographically accurate (see [reference site][1])
 
 # Bigger features
 
 - [ ] Accurate model of orion
+- [ ] Flight path for launch & splashdown (check kerbal simulations?)
 
 ---
 

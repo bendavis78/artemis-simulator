@@ -1,6 +1,6 @@
 import type { Timeline, PlaybackSpeed } from '../controls/timeline';
 import type { CameraController, FocusTarget, ReferencePlane } from '../controls/camera';
-import { MISSION_DURATION_HOURS } from '../constants';
+import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
 
 export function createOverlay(
   timeline: Timeline,
@@ -18,7 +18,7 @@ export function createOverlay(
     onGridFadeToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
   },
-): HTMLDivElement {
+): { overlay: HTMLDivElement; liveState: { isLive: boolean } } {
   const overlay = document.createElement('div');
   overlay.id = 'overlay';
   overlay.innerHTML = `
@@ -127,6 +127,31 @@ export function createOverlay(
         color: #4a9eff;
       }
       .btn-play { font-size: 0.9em; min-width: 32px; }
+      .btn-live {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        letter-spacing: 1px;
+      }
+      .btn-live.live-active {
+        background: rgba(220,50,50,0.15);
+        border-color: rgba(220,50,50,0.4);
+        color: #e05555;
+      }
+      .btn-live.live-active:hover { background: rgba(220,50,50,0.3); color: #ff6b6b; border-color: rgba(220,50,50,0.7); }
+      .btn-live .live-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .btn-live.live-active .live-dot {
+        animation: pulse-live 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse-live {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
 
       .separator {
         width: 1px;
@@ -207,6 +232,7 @@ export function createOverlay(
 
       <div class="controls-row">
         <button class="btn btn-play" id="btn-play">&#9654;</button>
+        <button class="btn btn-live" id="btn-live"><span class="live-dot"></span>LIVE</button>
         <div class="separator"></div>
         <button class="btn speed-btn" data-speed="1">1x</button>
         <button class="btn speed-btn" data-speed="10">10x</button>
@@ -248,15 +274,32 @@ export function createOverlay(
 
   document.body.appendChild(overlay);
 
+  const liveState = { isLive: false };
+
   // Wire up events
   const slider = overlay.querySelector('#timeline-slider') as HTMLInputElement;
   slider.addEventListener('input', () => {
+    liveState.isLive = false;
     timeline.setMET(parseFloat(slider.value));
   });
 
   const playBtn = overlay.querySelector('#btn-play') as HTMLButtonElement;
   playBtn.addEventListener('click', () => {
+    liveState.isLive = false;
     timeline.togglePlayPause();
+  });
+
+  const liveBtn = overlay.querySelector('#btn-live') as HTMLButtonElement;
+  liveBtn.addEventListener('click', () => {
+    liveState.isLive = true;
+    timeline.setSpeed(1);
+    overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelector('.speed-btn[data-speed="1"]')!.classList.add('active');
+    const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
+    timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
+    if (!timeline.state.isPlaying) {
+      timeline.togglePlayPause();
+    }
   });
 
   overlay.querySelectorAll('.speed-btn').forEach((btn) => {
@@ -264,6 +307,7 @@ export function createOverlay(
       const speed = parseInt(
         (btn as HTMLElement).dataset.speed!
       ) as PlaybackSpeed;
+      if (speed !== 1) liveState.isLive = false;
       timeline.setSpeed(speed);
       overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
@@ -386,11 +430,12 @@ export function createOverlay(
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
   if (!gridFadeToggle.checked) onGridFadeToggle(false);
 
-  return overlay;
+  return { overlay, liveState };
 }
 
 export function updateOverlay(
   timeline: Timeline,
+  liveState: { isLive: boolean },
   {
     distEarth,
     distMoon,
@@ -401,6 +446,14 @@ export function updateOverlay(
     speed: number;
   }
 ): void {
+  if (liveState.isLive) {
+    const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
+    timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
+    if (!timeline.state.isPlaying) timeline.togglePlayPause();
+  }
+
+  document.getElementById('btn-live')!.classList.toggle('live-active', liveState.isLive);
+
   const met = timeline.state.currentMET;
   const days = Math.floor(met / 24);
   const hours = Math.floor(met % 24);

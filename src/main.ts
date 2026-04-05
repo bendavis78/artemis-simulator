@@ -15,7 +15,7 @@ import { createOverlay, updateOverlay } from './ui/overlay';
 import { EARTH_RADIUS, MOON_RADIUS } from './constants';
 
 // --- Debug ---
-const DEBUG_CAMERA = true;
+const DEBUG_CAMERA = false;
 
 // --- Loading Manager ---
 const loadingManager = new THREE.LoadingManager();
@@ -142,7 +142,7 @@ let orionVisible = true;
 const timeline = new Timeline();
 
 // --- UI ---
-createOverlay(timeline, cameraController, {
+const { liveState } = createOverlay(timeline, cameraController, {
   onWireframeToggle(enabled) {
     earthMaterial.wireframe = enabled;
     earthMaterial.uniforms.uWireframe.value = enabled ? 1.0 : 0.0;
@@ -292,7 +292,7 @@ function animate() {
   const distEarth = scPos.length() - EARTH_RADIUS;
   const distMoon = scPos.distanceTo(moonPos) - 1.7374;
   const speed = interpolator.getSpeed(met);
-  updateOverlay(timeline, { distEarth, distMoon, speed });
+  updateOverlay(timeline, liveState, { distEarth, distMoon, speed });
 
   // Debug
   if (DEBUG_CAMERA) {
