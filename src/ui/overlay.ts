@@ -329,6 +329,28 @@ export function createOverlay(
     });
   });
 
+  // Arrow key timeline scrubbing
+  const ARROW_INTERVALS: Record<number, number> = {
+    1: 15 / 60,     // 15 minutes
+    10: 1,          // 1 hour
+    100: 6,         // 6 hours
+    1000: 24,       // 1 day
+    10000: 24,      // 1 day
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    liveState.isLive = false;
+    const interval = ARROW_INTERVALS[timeline.state.playbackSpeed] ?? 1;
+    const cur = timeline.state.currentMET;
+    const newMET = e.key === 'ArrowRight'
+      ? Math.floor(cur / interval + 1e-9) * interval + interval
+      : Math.ceil(cur / interval - 1e-9) * interval - interval;
+    timeline.setMET(newMET);
+  });
+
   // Settings gear
   const settingsToggle = overlay.querySelector('#settings-toggle') as HTMLButtonElement;
   const settingsPanel = overlay.querySelector('#settings-panel') as HTMLDivElement;
