@@ -5,7 +5,7 @@ import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onEclipticPlaneToggle, onMoonOrbitalPlaneToggle, onGridFadeToggle, onReferencePlaneChange }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onGridFadeToggle, onReferencePlaneChange }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
@@ -13,7 +13,6 @@ export function createOverlay(
     onProgressPathToggle: (enabled: boolean) => void;
     onOrionToggle: (enabled: boolean) => void;
     onIcrfPlaneToggle: (enabled: boolean) => void;
-    onEclipticPlaneToggle: (enabled: boolean) => void;
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
     onGridFadeToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
@@ -245,7 +244,6 @@ export function createOverlay(
         <button class="btn focus-btn" data-focus="orion">Orion</button>
         <div class="separator"></div>
         <button class="btn plane-btn active" data-plane="icrf">ICRF</button>
-        <button class="btn plane-btn" data-plane="ecliptic">Ecliptic</button>
         <button class="btn plane-btn" data-plane="lunar">Lunar</button>
         <div class="settings-wrap">
           <div class="settings-panel" id="settings-panel">
@@ -256,7 +254,6 @@ export function createOverlay(
             <label style="margin-top: 6px;"><input type="checkbox" id="progress-path-toggle" checked> Progress Path</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="orion-toggle" checked> Orion</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="icrf-plane-toggle"> ICRF Plane</label>
-            <label style="margin-top: 6px;"><input type="checkbox" id="ecliptic-plane-toggle"> Ecliptic Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbital-plane-toggle"> Moon Orbital Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="grid-fade-toggle" checked> Grid Fade</label>
           </div>
@@ -397,13 +394,6 @@ export function createOverlay(
     onIcrfPlaneToggle(icrfPlaneToggle.checked);
   });
 
-  const eclipticPlaneToggle = overlay.querySelector('#ecliptic-plane-toggle') as HTMLInputElement;
-  eclipticPlaneToggle.checked = savedSettings.eclipticPlane ?? false;
-  eclipticPlaneToggle.addEventListener('change', () => {
-    saveSetting('eclipticPlane', eclipticPlaneToggle.checked);
-    onEclipticPlaneToggle(eclipticPlaneToggle.checked);
-  });
-
   const moonOrbitalPlaneToggle = overlay.querySelector('#moon-orbital-plane-toggle') as HTMLInputElement;
   moonOrbitalPlaneToggle.checked = savedSettings.moonOrbitalPlane ?? false;
   moonOrbitalPlaneToggle.addEventListener('change', () => {
@@ -426,7 +416,6 @@ export function createOverlay(
   if (!progressPathToggle.checked) onProgressPathToggle(false);
   if (!orionToggle.checked) onOrionToggle(false);
   if (icrfPlaneToggle.checked) onIcrfPlaneToggle(true);
-  if (eclipticPlaneToggle.checked) onEclipticPlaneToggle(true);
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
   if (!gridFadeToggle.checked) onGridFadeToggle(false);
 

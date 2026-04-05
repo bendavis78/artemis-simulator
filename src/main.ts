@@ -169,9 +169,6 @@ const { liveState } = createOverlay(timeline, cameraController, {
   onIcrfPlaneToggle(enabled) {
     icrfPlane.visible = enabled;
   },
-  onEclipticPlaneToggle(enabled) {
-    eclipticPlane.visible = enabled;
-  },
   onMoonOrbitalPlaneToggle(enabled) {
     moonOrbitalPlane.visible = enabled;
   },
@@ -266,7 +263,12 @@ function animate() {
   // Spacecraft visibility: show model when close, marker when far
   const camDist = camera.position.distanceTo(scPos);
   spacecraftGroup.visible = orionVisible && camDist < 10;
-  spacecraftMarker.visible = orionVisible && camDist >= 2;
+  // Fade marker out as camera approaches
+  const markerFadeEnd = 5;   // distance at which marker is fully transparent
+  const markerFadeStart = 25; // distance at which marker is fully opaque
+  const markerOpacity = orionVisible ? THREE.MathUtils.clamp((camDist - markerFadeEnd) / (markerFadeStart - markerFadeEnd), 0, 1) : 0;
+  spacecraftMarker.visible = markerOpacity > 0;
+  (spacecraftMarker.material as THREE.SpriteMaterial).opacity = markerOpacity;
   // Scale marker based on distance
   const markerScale = Math.max(0.5, Math.min(camDist * 0.02, 3));
   spacecraftMarker.scale.set(markerScale, markerScale, 1);

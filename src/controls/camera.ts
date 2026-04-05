@@ -40,6 +40,11 @@ export class CameraController {
   // Track previous body position to compute frame-to-frame delta
   private lastBodyPos = new THREE.Vector3();
 
+  // Smooth zoom state
+  private targetDistance: number = 0;
+  private readonly ZOOM_SPEED = 0.15;
+  private readonly ZOOM_LERP = 0.12;
+
   constructor(canvas: HTMLElement) {
     this.camera = new THREE.PerspectiveCamera(
       60,
@@ -52,8 +57,24 @@ export class CameraController {
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
+    this.controls.enableZoom = false;
     this.controls.minDistance = FOCUS_CONFIGS.earth.minDistance;
     this.controls.maxDistance = FOCUS_CONFIGS.earth.maxDistance;
+
+    this.targetDistance = this.camera.position.length();
+    canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+  }
+
+  private handleWheel(event: WheelEvent): void {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? 1 : -1;
+    const factor = Math.pow(1 + this.ZOOM_SPEED, delta);
+    const config = FOCUS_CONFIGS[this.focusTarget];
+    this.targetDistance = THREE.MathUtils.clamp(
+      this.targetDistance * factor,
+      config.minDistance,
+      config.maxDistance
+    );
   }
 
   updateBodyPosition(body: FocusTarget, position: THREE.Vector3): void {
@@ -77,6 +98,7 @@ export class CameraController {
 
     this.controls.minDistance = config.minDistance;
     this.controls.maxDistance = config.maxDistance;
+    this.targetDistance = config.defaultDistance;
   }
 
   setReferencePlane(plane: ReferencePlane): void {
@@ -97,6 +119,14 @@ export class CameraController {
     }
 
     this.controls.update();
+
+    // Smooth zoom: lerp current distance toward targetDistance
+    const currentDistance = this.camera.position.distanceTo(this.controls.target);
+    if (Math.abs(currentDistance - this.targetDistance) > 1e-6) {
+      const newDistance = THREE.MathUtils.lerp(currentDistance, this.targetDistance, this.ZOOM_LERP);
+      const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+      this.camera.position.copy(this.controls.target).addScaledVector(dir, newDistance);
+    }
   }
 
   handleResize(): void {
