@@ -6,6 +6,17 @@ import { getIcrfNormal, getEclipticNormal, getMoonOrbitalNormal } from '../astro
 export type FocusTarget = 'earth' | 'moon' | 'orion';
 export type ReferencePlane = 'icrf' | 'ecliptic' | 'lunar';
 
+const CAMERA_STORAGE_KEY = 'artemis-camera-v1';
+
+interface CameraState {
+  focusTarget: FocusTarget;
+  referencePlane: ReferencePlane;
+  offsetX: number;
+  offsetY: number;
+  offsetZ: number;
+  targetDistance: number;
+}
+
 interface FocusConfig {
   defaultDistance: number;
   minDistance: number;
@@ -45,6 +56,10 @@ export class CameraController {
   private readonly ZOOM_SPEED = 0.15;
   private readonly ZOOM_LERP = 0.12;
 
+  // Deferred restore applied on first update() after body positions are set
+  private pendingRestore: CameraState | null = null;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(canvas: HTMLElement) {
     this.camera = new THREE.PerspectiveCamera(
       60,
@@ -63,6 +78,40 @@ export class CameraController {
 
     this.targetDistance = this.camera.position.length();
     canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+    this.controls.addEventListener('change', () => this.scheduleSave());
+  }
+
+  private scheduleSave(): void {
+    if (this.saveDebounceTimer !== null) clearTimeout(this.saveDebounceTimer);
+    this.saveDebounceTimer = setTimeout(() => this.saveState(), 500);
+  }
+
+  saveState(): void {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const state: CameraState = {
+      focusTarget: this.focusTarget,
+      referencePlane: this.referencePlane,
+      offsetX: offset.x,
+      offsetY: offset.y,
+      offsetZ: offset.z,
+      targetDistance: this.targetDistance,
+    };
+    localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(state));
+  }
+
+  restoreState(): void {
+    const raw = localStorage.getItem(CAMERA_STORAGE_KEY);
+    if (!raw) return;
+    let state: CameraState;
+    try {
+      state = JSON.parse(raw) as CameraState;
+    } catch {
+      return;
+    }
+    this.focusTarget = state.focusTarget;
+    this.referencePlane = state.referencePlane;
+    this.camera.up.copy(PLANE_NORMALS[state.referencePlane]());
+    this.pendingRestore = state;
   }
 
   private handleWheel(event: WheelEvent): void {
@@ -99,15 +148,30 @@ export class CameraController {
     this.controls.minDistance = config.minDistance;
     this.controls.maxDistance = config.maxDistance;
     this.targetDistance = config.defaultDistance;
+    this.saveState();
   }
 
   setReferencePlane(plane: ReferencePlane): void {
     this.referencePlane = plane;
     this.camera.up.copy(PLANE_NORMALS[plane]());
     this.controls.update();
+    this.saveState();
   }
 
   update(): void {
+    if (this.pendingRestore) {
+      const state = this.pendingRestore;
+      this.pendingRestore = null;
+      const bodyPos = this.bodyPositions[state.focusTarget];
+      const offset = new THREE.Vector3(state.offsetX, state.offsetY, state.offsetZ);
+      this.controls.target.copy(bodyPos);
+      this.camera.position.copy(bodyPos).add(offset);
+      this.lastBodyPos.copy(bodyPos);
+      this.targetDistance = state.targetDistance;
+      this.controls.minDistance = FOCUS_CONFIGS[state.focusTarget].minDistance;
+      this.controls.maxDistance = FOCUS_CONFIGS[state.focusTarget].maxDistance;
+    }
+
     // Move camera + target with the body so orbiting stays centered
     const bodyPos = this.bodyPositions[this.focusTarget];
     const delta = bodyPos.clone().sub(this.lastBodyPos);

@@ -239,11 +239,11 @@ export function createOverlay(
         <button class="btn speed-btn" data-speed="1000">1Kx</button>
         <button class="btn speed-btn" data-speed="10000">10Kx</button>
         <div class="separator"></div>
-        <button class="btn focus-btn active" data-focus="earth">Earth</button>
+        <button class="btn focus-btn" data-focus="earth">Earth</button>
         <button class="btn focus-btn" data-focus="moon">Moon</button>
         <button class="btn focus-btn" data-focus="orion">Orion</button>
         <div class="separator"></div>
-        <button class="btn plane-btn active" data-plane="icrf">ICRF</button>
+        <button class="btn plane-btn" data-plane="icrf">ICRF</button>
         <button class="btn plane-btn" data-plane="lunar">Lunar</button>
         <div class="settings-wrap">
           <div class="settings-panel" id="settings-panel">
@@ -270,6 +270,10 @@ export function createOverlay(
   `;
 
   document.body.appendChild(overlay);
+
+  // Reflect restored camera state in buttons
+  overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
+  overlay.querySelector(`.plane-btn[data-plane="${cameraController.referencePlane}"]`)?.classList.add('active');
 
   const liveState = { isLive: false };
 

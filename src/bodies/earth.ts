@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { EARTH_RADIUS, TEXTURES } from '../constants';
 
+const DEBUG_PRIME_MERIDIAN = false;
+
 const vertexShader = /* glsl */ `
   #ifdef USE_LOGDEPTHBUF
     varying float vFragDepth;
@@ -36,6 +38,7 @@ const fragmentShader = /* glsl */ `
   uniform sampler2D specularTexture;
   uniform vec3 sunDirection;
   uniform float uWireframe;
+  uniform float uDebugPrimeMeridian;
 
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -79,6 +82,11 @@ const fragmentShader = /* glsl */ `
     vec3 atmosphere = vec3(0.3, 0.6, 1.0) * pow(rim, 3.0) * 0.6;
     color += atmosphere * dayFactor;
 
+    // Debug: draw prime meridian (u=0.5) as a red stripe
+    if (uDebugPrimeMeridian > 0.5 && abs(vUv.x - 0.5) < 0.002) {
+      color = vec3(1.0, 0.0, 0.0);
+    }
+
     gl_FragColor = vec4(color, 1.0);
 
     #ifdef USE_LOGDEPTHBUF
@@ -117,6 +125,7 @@ export function createEarth(loadingManager: THREE.LoadingManager): {
       sunDirection: { value: new THREE.Vector3(1, 0, 0) },
       logDepthBufFC: { value: 0 },
       uWireframe: { value: 0.0 },
+      uDebugPrimeMeridian: { value: DEBUG_PRIME_MERIDIAN ? 1.0 : 0.0 },
     },
   });
 

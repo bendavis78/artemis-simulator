@@ -70,6 +70,7 @@ scene.add(stars);
 
 // --- Camera ---
 const cameraController = new CameraController(renderer.domElement);
+cameraController.restoreState();
 const camera = cameraController.camera;
 
 // --- Lighting ---
