@@ -5,10 +5,19 @@ import { getMoonOrbitPoints } from './moon-position';
 const GRID_SIZE = 1000;          // total extent of each plane (scene units)
 const GRID_MIN_DIVISIONS = 20;   // minimum grid divisions (maximum step size)
 const GRID_DENSITY = 0.08;       // rawStep = cameraDist * GRID_DENSITY; lower = more lines
-const GRID_OPACITY = 0.5;
-const CENTER_OPACITY = 0.9;
 const FADE_NEAR_FACTOR = 0.8;    // fadeNear = camDist * factor (full opacity within this)
 const FADE_FAR_FACTOR = 2.5;     // fadeFar  = camDist * factor (zero opacity beyond this)
+
+// --- Per-plane styles ---
+interface PlaneStyle {
+  color: number;
+  gridOpacity: number;
+  centerOpacity: number;
+}
+
+const ICRF_STYLE: PlaneStyle     = { color: 0x3366aa, gridOpacity: 0.5, centerOpacity: 0.9 };
+const ECLIPTIC_STYLE: PlaneStyle = { color: 0xccaa44, gridOpacity: 0.5, centerOpacity: 0.9 };
+const MOON_STYLE: PlaneStyle     = { color: 0xcccccc, gridOpacity: 0.3, centerOpacity: 0.6 };
 
 const GRID_VERT = /* glsl */`
   varying vec3 vWorldPos;
@@ -85,16 +94,16 @@ interface ReferencePlane {
   update: (cameraDist: number, cameraPos: THREE.Vector3, focusPos: THREE.Vector3) => void;
 }
 
-function createGridGroup(normal: THREE.Vector3, color: number): ReferencePlane {
+function createGridGroup(normal: THREE.Vector3, style: PlaneStyle): ReferencePlane {
   const group = new THREE.Group();
 
   // Faint grid lines — geometry rebuilt on zoom change; shader fades distant lines
-  const gridMat = createGridMaterial(color, GRID_OPACITY);
+  const gridMat = createGridMaterial(style.color, style.gridOpacity);
   const gridLines = new THREE.LineSegments(new THREE.BufferGeometry(), gridMat);
   group.add(gridLines);
 
   // Center axes — same shader, higher opacity, fixed geometry
-  const centerMat = createGridMaterial(color, CENTER_OPACITY);
+  const centerMat = createGridMaterial(style.color, style.centerOpacity);
   const centerGeo = new THREE.BufferGeometry();
   centerGeo.setAttribute('position', new THREE.Float32BufferAttribute(buildCenterPositions(), 3));
   group.add(new THREE.LineSegments(centerGeo, centerMat));
@@ -153,13 +162,13 @@ export function getMoonOrbitalNormal(): THREE.Vector3 {
 }
 
 export function createIcrfPlane(): ReferencePlane {
-  return createGridGroup(getIcrfNormal(), 0x3366aa);
+  return createGridGroup(getIcrfNormal(), ICRF_STYLE);
 }
 
 export function createEclipticPlane(): ReferencePlane {
-  return createGridGroup(getEclipticNormal(), 0xccaa44);
+  return createGridGroup(getEclipticNormal(), ECLIPTIC_STYLE);
 }
 
 export function createMoonOrbitalPlane(): ReferencePlane {
-  return createGridGroup(getMoonOrbitalNormal(), 0xcccccc);
+  return createGridGroup(getMoonOrbitalNormal(), MOON_STYLE);
 }
