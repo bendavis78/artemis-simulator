@@ -5,10 +5,16 @@ import { MISSION_DURATION_HOURS } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onEclipticPlaneToggle, onMoonOrbitalPlaneToggle }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
+    onFlightPathToggle: (enabled: boolean) => void;
+    onProgressPathToggle: (enabled: boolean) => void;
+    onOrionToggle: (enabled: boolean) => void;
+    onIcrfPlaneToggle: (enabled: boolean) => void;
+    onEclipticPlaneToggle: (enabled: boolean) => void;
+    onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
   },
 ): HTMLDivElement {
   const overlay = document.createElement('div');
@@ -214,6 +220,12 @@ export function createOverlay(
             <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbit-toggle"> Moon Orbit</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="stars-toggle" checked> Stars</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="flight-path-toggle" checked> Flight Path</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="progress-path-toggle" checked> Progress Path</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="orion-toggle" checked> Orion</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="icrf-plane-toggle"> ICRF Plane</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="ecliptic-plane-toggle"> Ecliptic Plane</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbital-plane-toggle"> Moon Orbital Plane</label>
           </div>
           <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
         </div>
@@ -297,10 +309,58 @@ export function createOverlay(
     onStarsToggle(starsToggle.checked);
   });
 
+  const flightPathToggle = overlay.querySelector('#flight-path-toggle') as HTMLInputElement;
+  flightPathToggle.checked = savedSettings.flightPath ?? true;
+  flightPathToggle.addEventListener('change', () => {
+    saveSetting('flightPath', flightPathToggle.checked);
+    onFlightPathToggle(flightPathToggle.checked);
+  });
+
+  const progressPathToggle = overlay.querySelector('#progress-path-toggle') as HTMLInputElement;
+  progressPathToggle.checked = savedSettings.progressPath ?? true;
+  progressPathToggle.addEventListener('change', () => {
+    saveSetting('progressPath', progressPathToggle.checked);
+    onProgressPathToggle(progressPathToggle.checked);
+  });
+
+  const orionToggle = overlay.querySelector('#orion-toggle') as HTMLInputElement;
+  orionToggle.checked = savedSettings.orion ?? true;
+  orionToggle.addEventListener('change', () => {
+    saveSetting('orion', orionToggle.checked);
+    onOrionToggle(orionToggle.checked);
+  });
+
+  const icrfPlaneToggle = overlay.querySelector('#icrf-plane-toggle') as HTMLInputElement;
+  icrfPlaneToggle.checked = savedSettings.icrfPlane ?? false;
+  icrfPlaneToggle.addEventListener('change', () => {
+    saveSetting('icrfPlane', icrfPlaneToggle.checked);
+    onIcrfPlaneToggle(icrfPlaneToggle.checked);
+  });
+
+  const eclipticPlaneToggle = overlay.querySelector('#ecliptic-plane-toggle') as HTMLInputElement;
+  eclipticPlaneToggle.checked = savedSettings.eclipticPlane ?? false;
+  eclipticPlaneToggle.addEventListener('change', () => {
+    saveSetting('eclipticPlane', eclipticPlaneToggle.checked);
+    onEclipticPlaneToggle(eclipticPlaneToggle.checked);
+  });
+
+  const moonOrbitalPlaneToggle = overlay.querySelector('#moon-orbital-plane-toggle') as HTMLInputElement;
+  moonOrbitalPlaneToggle.checked = savedSettings.moonOrbitalPlane ?? false;
+  moonOrbitalPlaneToggle.addEventListener('change', () => {
+    saveSetting('moonOrbitalPlane', moonOrbitalPlaneToggle.checked);
+    onMoonOrbitalPlaneToggle(moonOrbitalPlaneToggle.checked);
+  });
+
   // Apply persisted settings to scene on load
   if (wireframeToggle.checked) onWireframeToggle(true);
   if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
   if (!starsToggle.checked) onStarsToggle(false);
+  if (!flightPathToggle.checked) onFlightPathToggle(false);
+  if (!progressPathToggle.checked) onProgressPathToggle(false);
+  if (!orionToggle.checked) onOrionToggle(false);
+  if (icrfPlaneToggle.checked) onIcrfPlaneToggle(true);
+  if (eclipticPlaneToggle.checked) onEclipticPlaneToggle(true);
+  if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
 
   return overlay;
 }

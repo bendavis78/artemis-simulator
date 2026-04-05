@@ -5,6 +5,7 @@ import { createSunLight } from './bodies/sun';
 import { createSpacecraft } from './bodies/spacecraft';
 import { getSunDirection } from './astro/sun-position';
 import { getMoonPosition, getMoonOrbitPoints } from './astro/moon-position';
+import { createIcrfPlane, createEclipticPlane, createMoonOrbitalPlane } from './astro/reference-planes';
 import { generateTrajectory } from './trajectory/data';
 import { TrajectoryInterpolator } from './trajectory/interpolate';
 import { createFlightPath } from './trajectory/path';
@@ -76,8 +77,6 @@ scene.add(ambient);
 // --- Earth ---
 const { mesh: earthMesh, material: earthMaterial } =
   createEarth(loadingManager);
-// Tilt Earth's axis (obliquity)
-earthMesh.rotation.z = 23.44 * (Math.PI / 180);
 scene.add(earthMesh);
 
 // --- Moon ---
@@ -107,6 +106,19 @@ const moonWireframeMat = new THREE.MeshBasicMaterial({
   moonOrbitLine.name = 'moonOrbit';
   scene.add(moonOrbitLine);
 }
+
+// --- Reference Planes ---
+const { group: icrfPlane, update: updateIcrfPlane } = createIcrfPlane();
+icrfPlane.visible = false;
+scene.add(icrfPlane);
+
+const { group: eclipticPlane, update: updateEclipticPlane } = createEclipticPlane();
+eclipticPlane.visible = false;
+scene.add(eclipticPlane);
+
+const { group: moonOrbitalPlane, update: updateMoonOrbitalPlane } = createMoonOrbitalPlane();
+moonOrbitalPlane.visible = false;
+scene.add(moonOrbitalPlane);
 const moonOrbitLine = scene.getObjectByName('moonOrbit') as THREE.Line;
 
 // --- Trajectory ---
@@ -121,6 +133,7 @@ const { group: spacecraftGroup, marker: spacecraftMarker } =
   createSpacecraft();
 scene.add(spacecraftGroup);
 scene.add(spacecraftMarker);
+let orionVisible = true;
 
 // --- Timeline ---
 const timeline = new Timeline();
@@ -141,6 +154,25 @@ createOverlay(timeline, cameraController, {
   onStarsToggle(enabled) {
     stars.visible = enabled;
   },
+  onFlightPathToggle(enabled) {
+    flightPath.fullPath.visible = enabled;
+  },
+  onProgressPathToggle(enabled) {
+    flightPath.progressPath.visible = enabled;
+  },
+  onOrionToggle(enabled) {
+    orionVisible = enabled;
+  },
+  onIcrfPlaneToggle(enabled) {
+    icrfPlane.visible = enabled;
+  },
+  onEclipticPlaneToggle(enabled) {
+    eclipticPlane.visible = enabled;
+  },
+  onMoonOrbitalPlaneToggle(enabled) {
+    moonOrbitalPlane.visible = enabled;
+  },
+
 });
 
 // --- Click to focus ---
@@ -210,8 +242,8 @@ function animate() {
 
   // Spacecraft visibility: show model when close, marker when far
   const camDist = camera.position.distanceTo(scPos);
-  spacecraftGroup.visible = camDist < 10;
-  spacecraftMarker.visible = camDist >= 2;
+  spacecraftGroup.visible = orionVisible && camDist < 10;
+  spacecraftMarker.visible = orionVisible && camDist >= 2;
   // Scale marker based on distance
   const markerScale = Math.max(0.5, Math.min(camDist * 0.02, 3));
   spacecraftMarker.scale.set(markerScale, markerScale, 1);
@@ -219,6 +251,12 @@ function animate() {
   // Update flight path progress
   const curveFrac = interpolator.getCurveFraction(met);
   flightPath.update(curveFrac);
+
+  // Update reference plane grid resolution based on camera distance from Earth
+  const camDistFromEarth = camera.position.length();
+  updateIcrfPlane(camDistFromEarth);
+  updateEclipticPlane(camDistFromEarth);
+  updateMoonOrbitalPlane(camDistFromEarth);
 
   // Update body positions for camera controller
   cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));
