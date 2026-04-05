@@ -78,7 +78,7 @@ function buildGridPositions(step: number): Float32Array {
 
 interface ReferencePlane {
   group: THREE.Group;
-  update: (cameraDist: number, cameraPos: THREE.Vector3) => void;
+  update: (cameraDist: number, cameraPos: THREE.Vector3, focusPos: THREE.Vector3) => void;
 }
 
 function createGridGroup(normal: THREE.Vector3, color: number): ReferencePlane {
@@ -111,7 +111,10 @@ function createGridGroup(normal: THREE.Vector3, color: number): ReferencePlane {
 
   let currentStep = -1;
 
-  function update(cameraDist: number, cameraPos: THREE.Vector3): void {
+  function update(cameraDist: number, cameraPos: THREE.Vector3, focusPos: THREE.Vector3): void {
+    // Center the grid on the current focus target
+    group.position.copy(focusPos);
+
     // Update grid density
     const maxStep = GRID_SIZE / GRID_MIN_DIVISIONS;
     const raw = Math.min(Math.max(cameraDist * GRID_DENSITY, 0.1), maxStep);

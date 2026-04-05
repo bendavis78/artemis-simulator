@@ -255,10 +255,11 @@ function animate() {
   flightPath.update(curveFrac);
 
   // Update reference plane grid resolution and distance fade based on camera
-  const camDistFromEarth = camera.position.length();
-  updateIcrfPlane(camDistFromEarth, camera.position);
-  updateEclipticPlane(camDistFromEarth, camera.position);
-  updateMoonOrbitalPlane(camDistFromEarth, camera.position);
+  const focusPos = cameraController.controls.target;
+  const camDistFromFocus = camera.position.distanceTo(focusPos);
+  updateIcrfPlane(camDistFromFocus, camera.position, focusPos);
+  updateEclipticPlane(camDistFromFocus, camera.position, focusPos);
+  updateMoonOrbitalPlane(camDistFromFocus, camera.position, focusPos);
 
   // Update body positions for camera controller
   cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));
