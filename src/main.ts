@@ -14,6 +14,9 @@ import { Timeline } from './controls/timeline';
 import { createOverlay, updateOverlay } from './ui/overlay';
 import { EARTH_RADIUS, MOON_RADIUS } from './constants';
 
+// --- Debug ---
+const DEBUG_CAMERA = true;
+
 // --- Loading Manager ---
 const loadingManager = new THREE.LoadingManager();
 const loadingBar = document.getElementById('loading-bar')!;
@@ -108,15 +111,15 @@ const moonWireframeMat = new THREE.MeshBasicMaterial({
 }
 
 // --- Reference Planes ---
-const { group: icrfPlane, update: updateIcrfPlane } = createIcrfPlane();
+const { group: icrfPlane, update: updateIcrfPlane, setFadeEnabled: setIcrfFade } = createIcrfPlane();
 icrfPlane.visible = false;
 scene.add(icrfPlane);
 
-const { group: eclipticPlane, update: updateEclipticPlane } = createEclipticPlane();
+const { group: eclipticPlane, update: updateEclipticPlane, setFadeEnabled: setEclipticFade } = createEclipticPlane();
 eclipticPlane.visible = false;
 scene.add(eclipticPlane);
 
-const { group: moonOrbitalPlane, update: updateMoonOrbitalPlane } = createMoonOrbitalPlane();
+const { group: moonOrbitalPlane, update: updateMoonOrbitalPlane, setFadeEnabled: setMoonOrbitalFade } = createMoonOrbitalPlane();
 moonOrbitalPlane.visible = false;
 scene.add(moonOrbitalPlane);
 const moonOrbitLine = scene.getObjectByName('moonOrbit') as THREE.Line;
@@ -172,10 +175,27 @@ createOverlay(timeline, cameraController, {
   onMoonOrbitalPlaneToggle(enabled) {
     moonOrbitalPlane.visible = enabled;
   },
+  onGridFadeToggle(enabled) {
+    setIcrfFade(enabled);
+    setEclipticFade(enabled);
+    setMoonOrbitalFade(enabled);
+  },
   onReferencePlaneChange(plane: ReferencePlane) {
     cameraController.setReferencePlane(plane);
   },
 });
+
+// --- Debug overlay ---
+const debugEl = document.createElement('pre');
+debugEl.style.cssText = `
+  position: fixed; top: 48px; right: 20px;
+  font: 11px/1.5 'Courier New', monospace;
+  color: #0f0; background: rgba(0,0,0,0.6);
+  padding: 6px 10px; border-radius: 4px;
+  pointer-events: none; z-index: 200;
+  display: ${DEBUG_CAMERA ? 'block' : 'none'};
+`;
+document.body.appendChild(debugEl);
 
 // --- Click to focus ---
 renderer.domElement.addEventListener('dblclick', (event) => {
@@ -224,6 +244,7 @@ function animate() {
     2.0 / (Math.log(camera.far + 1.0) / Math.LN2);
 
   // Update Earth rotation
+  const earthPos = new THREE.Vector3(0, 0, 0);
   earthMesh.rotation.y = getGreenwichSiderealAngle(simDate);
 
   // Update Moon position
@@ -255,17 +276,17 @@ function animate() {
   flightPath.update(curveFrac);
 
   // Update body positions and camera first so controls.target is current
-  cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));
+  cameraController.updateBodyPosition('earth', earthPos);
   cameraController.updateBodyPosition('moon', moonPos);
   cameraController.updateBodyPosition('orion', scPos);
   cameraController.update();
 
   // Update reference plane grid resolution and distance fade based on camera
   const focusPos = cameraController.controls.target;
-  const camDistFromFocus = camera.position.distanceTo(focusPos);
-  updateIcrfPlane(camDistFromFocus, camera.position, focusPos);
-  updateEclipticPlane(camDistFromFocus, camera.position, focusPos);
-  updateMoonOrbitalPlane(camDistFromFocus, camera.position, focusPos);
+
+  updateIcrfPlane(camera.position, earthPos, focusPos);
+  updateEclipticPlane(camera.position, focusPos, focusPos);
+  updateMoonOrbitalPlane(camera.position, focusPos, focusPos);
 
   // Update UI
   const distEarth = scPos.length() - EARTH_RADIUS;
@@ -273,7 +294,24 @@ function animate() {
   const speed = interpolator.getSpeed(met);
   updateOverlay(timeline, { distEarth, distMoon, speed });
 
+  // Debug
+  if (DEBUG_CAMERA) {
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    const focusDist = camera.position.distanceTo(focusPos);
+    debugEl.textContent = [
+      `cam pos:   ${fmt(camera.position)}`,
+      `cam dir:   ${fmt(dir)}`,
+      `focus pos: ${fmt(focusPos)}`,
+      `orbit dist: ${focusDist.toFixed(3)}`,
+    ].join('\n');
+  }
+
   renderer.render(scene, camera);
+}
+
+function fmt(v: THREE.Vector3): string {
+  return `(${v.x.toFixed(3)}, ${v.y.toFixed(3)}, ${v.z.toFixed(3)})`;
 }
 
 animate();

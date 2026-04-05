@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { getMoonOrbitPoints } from './moon-position';
 
 // --- Tuning constants ---
-const GRID_SIZE = 1000;          // total extent of each plane (scene units)
+const GRID_SIZE = 4000;          // total extent of each plane (scene units)
 const GRID_MIN_DIVISIONS = 20;   // minimum grid divisions (maximum step size)
-const GRID_DENSITY = 0.08;       // rawStep = cameraDist * GRID_DENSITY; lower = more lines
+const GRID_DENSITY = 0.2;       // rawStep = cameraDist * GRID_DENSITY; lower = more lines
 const FADE_NEAR_FACTOR = 0.8;    // fadeNear = camDist * factor (full opacity within this)
 const FADE_FAR_FACTOR = 2.5;     // fadeFar  = camDist * factor (zero opacity beyond this)
 
@@ -33,10 +33,10 @@ const GRID_FRAG = /* glsl */`
   uniform float uOpacity;
   uniform float uFadeNear;
   uniform float uFadeFar;
-  uniform vec3 uCameraPos;
+  uniform vec3 uFocusPos;
   varying vec3 vWorldPos;
   void main() {
-    float dist = length(vWorldPos - uCameraPos);
+    float dist = length(vWorldPos - uFocusPos);
     float fade = 1.0 - smoothstep(uFadeNear, uFadeFar, dist);
     gl_FragColor = vec4(uColor, uOpacity * fade);
   }
@@ -53,7 +53,7 @@ function createGridMaterial(color: number, opacity: number): THREE.ShaderMateria
       uOpacity:   { value: opacity },
       uFadeNear:  { value: 1.0 },
       uFadeFar:   { value: 10.0 },
-      uCameraPos: { value: new THREE.Vector3() },
+      uFocusPos:  { value: new THREE.Vector3() },
     },
   });
 }
@@ -91,7 +91,8 @@ function buildCenterPositions(): Float32Array {
 
 interface ReferencePlane {
   group: THREE.Group;
-  update: (cameraDist: number, cameraPos: THREE.Vector3, focusPos: THREE.Vector3) => void;
+  update: (cameraPos: THREE.Vector3, centerPos: THREE.Vector3, fadePos: THREE.Vector3) => void;
+  setFadeEnabled: (enabled: boolean) => void;
 }
 
 function createGridGroup(normal: THREE.Vector3, style: PlaneStyle): ReferencePlane {
@@ -109,17 +110,25 @@ function createGridGroup(normal: THREE.Vector3, style: PlaneStyle): ReferencePla
   group.add(new THREE.LineSegments(centerGeo, centerMat));
 
   // Orient local Z to the plane normal (grid is built in local XY plane)
-  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal.clone().normalize());
+  const unitNormal = normal.clone().normalize();
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), unitNormal);
 
   let currentStep = -1;
+  let fadeEnabled = true;
+  const _tmp = new THREE.Vector3();
 
-  function update(cameraDist: number, cameraPos: THREE.Vector3, focusPos: THREE.Vector3): void {
-    // Center the grid on the current focus target
-    group.position.copy(focusPos);
+  function update(cameraPos: THREE.Vector3, centerPos: THREE.Vector3, fadePos: THREE.Vector3): void {
+    // Position the grid at centerPos (e.g. Earth for ICRF, focus target for others)
+    group.position.copy(centerPos);
+
+    // Perpendicular distance from camera to the plane surface — drives grid LOD.
+    // This correctly handles the case where the focus body is far from the plane
+    // (e.g. Moon focused but ICRF plane centered on Earth).
+    const perpDist = Math.abs(unitNormal.dot(_tmp.copy(cameraPos).sub(centerPos)));
 
     // Update grid density
     const maxStep = GRID_SIZE / GRID_MIN_DIVISIONS;
-    const raw = Math.min(Math.max(cameraDist * GRID_DENSITY, 0.1), maxStep);
+    const raw = Math.min(Math.max(perpDist * GRID_DENSITY, 0.1), maxStep);
     const step = niceStep(raw);
     if (step !== currentStep) {
       currentStep = step;
@@ -130,17 +139,23 @@ function createGridGroup(normal: THREE.Vector3, style: PlaneStyle): ReferencePla
       gridLines.geometry = newGeo;
     }
 
-    // Update distance fade — fade starts at FADE_NEAR_FACTOR * camDist, gone by FADE_FAR_FACTOR * camDist
-    const fadeNear = cameraDist * FADE_NEAR_FACTOR;
-    const fadeFar  = cameraDist * FADE_FAR_FACTOR;
+    // Fade radius scales with camera distance to the grid center (not focus body),
+    // so the fade range always encompasses the grid regardless of which body is focused.
+    const distToCenter = cameraPos.distanceTo(centerPos);
+    const fadeNear = fadeEnabled ? distToCenter * FADE_NEAR_FACTOR : 1e9;
+    const fadeFar  = fadeEnabled ? distToCenter * FADE_FAR_FACTOR  : 1e9;
     for (const mat of [gridMat, centerMat]) {
-      mat.uniforms.uCameraPos.value.copy(cameraPos);
+      mat.uniforms.uFocusPos.value.copy(fadePos);
       mat.uniforms.uFadeNear.value = fadeNear;
       mat.uniforms.uFadeFar.value  = fadeFar;
     }
   }
 
-  return { group, update };
+  function setFadeEnabled(enabled: boolean): void {
+    fadeEnabled = enabled;
+  }
+
+  return { group, update, setFadeEnabled };
 }
 
 export function getIcrfNormal(): THREE.Vector3 {

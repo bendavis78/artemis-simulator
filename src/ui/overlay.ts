@@ -5,7 +5,7 @@ import { MISSION_DURATION_HOURS } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onEclipticPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onEclipticPlaneToggle, onMoonOrbitalPlaneToggle, onGridFadeToggle, onReferencePlaneChange }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
@@ -15,6 +15,7 @@ export function createOverlay(
     onIcrfPlaneToggle: (enabled: boolean) => void;
     onEclipticPlaneToggle: (enabled: boolean) => void;
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
+    onGridFadeToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
   },
 ): HTMLDivElement {
@@ -231,6 +232,7 @@ export function createOverlay(
             <label style="margin-top: 6px;"><input type="checkbox" id="icrf-plane-toggle"> ICRF Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="ecliptic-plane-toggle"> Ecliptic Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbital-plane-toggle"> Moon Orbital Plane</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="grid-fade-toggle" checked> Grid Fade</label>
           </div>
           <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
         </div>
@@ -365,6 +367,13 @@ export function createOverlay(
     onMoonOrbitalPlaneToggle(moonOrbitalPlaneToggle.checked);
   });
 
+  const gridFadeToggle = overlay.querySelector('#grid-fade-toggle') as HTMLInputElement;
+  gridFadeToggle.checked = savedSettings.gridFade ?? true;
+  gridFadeToggle.addEventListener('change', () => {
+    saveSetting('gridFade', gridFadeToggle.checked);
+    onGridFadeToggle(gridFadeToggle.checked);
+  });
+
   // Apply persisted settings to scene on load
   if (wireframeToggle.checked) onWireframeToggle(true);
   if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
@@ -375,6 +384,7 @@ export function createOverlay(
   if (icrfPlaneToggle.checked) onIcrfPlaneToggle(true);
   if (eclipticPlaneToggle.checked) onEclipticPlaneToggle(true);
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
+  if (!gridFadeToggle.checked) onGridFadeToggle(false);
 
   return overlay;
 }
