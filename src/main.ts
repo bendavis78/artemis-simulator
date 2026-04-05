@@ -252,11 +252,11 @@ function animate() {
   const curveFrac = interpolator.getCurveFraction(met);
   flightPath.update(curveFrac);
 
-  // Update reference plane grid resolution based on camera distance from Earth
+  // Update reference plane grid resolution and distance fade based on camera
   const camDistFromEarth = camera.position.length();
-  updateIcrfPlane(camDistFromEarth);
-  updateEclipticPlane(camDistFromEarth);
-  updateMoonOrbitalPlane(camDistFromEarth);
+  updateIcrfPlane(camDistFromEarth, camera.position);
+  updateEclipticPlane(camDistFromEarth, camera.position);
+  updateMoonOrbitalPlane(camDistFromEarth, camera.position);
 
   // Update body positions for camera controller
   cameraController.updateBodyPosition('earth', new THREE.Vector3(0, 0, 0));

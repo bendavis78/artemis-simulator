@@ -8,9 +8,50 @@ import { getMoonOrbitPoints } from './moon-position';
 const GRID_SIZE = 1000;          // total extent of each plane (scene units)
 const GRID_MIN_DIVISIONS = 20;   // minimum grid divisions (maximum step size)
 const GRID_DENSITY = 0.08;       // rawStep = cameraDist * GRID_DENSITY; lower = more lines
-const GRID_OPACITY = 0.18;       // faint grid lines
-const CENTER_OPACITY = 0.5;      // bold center axis lines
+const GRID_OPACITY = 0.5;       // faint grid lines
+const CENTER_OPACITY = GRID_OPACITY;      // bold center axis lines
 const CENTER_LINEWIDTH = 2;      // pixels (Line2)
+const FADE_NEAR_FACTOR = 0.8;    // fadeNear = camDist * factor (full opacity within this)
+const FADE_FAR_FACTOR = 2.5;     // fadeFar  = camDist * factor (zero opacity beyond this)
+
+const GRID_VERT = /* glsl */`
+  varying vec3 vWorldPos;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPos = worldPos.xyz;
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+const GRID_FRAG = /* glsl */`
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uFadeNear;
+  uniform float uFadeFar;
+  uniform vec3 uCameraPos;
+  varying vec3 vWorldPos;
+  void main() {
+    float dist = length(vWorldPos - uCameraPos);
+    float fade = 1.0 - smoothstep(uFadeNear, uFadeFar, dist);
+    gl_FragColor = vec4(uColor, uOpacity * fade);
+  }
+`;
+
+function createGridMaterial(color: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: GRID_VERT,
+    fragmentShader: GRID_FRAG,
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      uColor:     { value: new THREE.Color(color) },
+      uOpacity:   { value: GRID_OPACITY },
+      uFadeNear:  { value: 1.0 },
+      uFadeFar:   { value: 10.0 },
+      uCameraPos: { value: new THREE.Vector3() },
+    },
+  });
+}
 
 /** Snap a raw step value to the nearest 1-2-2.5-5 sequence number. */
 function niceStep(raw: number): number {
@@ -37,15 +78,15 @@ function buildGridPositions(step: number): Float32Array {
 
 interface ReferencePlane {
   group: THREE.Group;
-  update: (cameraDist: number) => void;
+  update: (cameraDist: number, cameraPos: THREE.Vector3) => void;
 }
 
 function createGridGroup(normal: THREE.Vector3, color: number): ReferencePlane {
   const group = new THREE.Group();
   const half = GRID_SIZE / 2;
 
-  // Faint grid lines — geometry rebuilt on zoom change
-  const gridMat = new THREE.LineBasicMaterial({ color, opacity: GRID_OPACITY, transparent: true });
+  // Faint grid lines — geometry rebuilt on zoom change; shader fades distant lines
+  const gridMat = createGridMaterial(color);
   const gridLines = new THREE.LineSegments(new THREE.BufferGeometry(), gridMat);
   group.add(gridLines);
 
@@ -70,17 +111,24 @@ function createGridGroup(normal: THREE.Vector3, color: number): ReferencePlane {
 
   let currentStep = -1;
 
-  function update(cameraDist: number): void {
+  function update(cameraDist: number, cameraPos: THREE.Vector3): void {
+    // Update grid density
     const maxStep = GRID_SIZE / GRID_MIN_DIVISIONS;
     const raw = Math.min(Math.max(cameraDist * GRID_DENSITY, 0.1), maxStep);
     const step = niceStep(raw);
-    if (step === currentStep) return;
-    currentStep = step;
-    const positions = buildGridPositions(step);
-    const newGeo = new THREE.BufferGeometry();
-    newGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    gridLines.geometry.dispose();
-    gridLines.geometry = newGeo;
+    if (step !== currentStep) {
+      currentStep = step;
+      const positions = buildGridPositions(step);
+      const newGeo = new THREE.BufferGeometry();
+      newGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      gridLines.geometry.dispose();
+      gridLines.geometry = newGeo;
+    }
+
+    // Update distance fade — fade starts at FADE_NEAR_FACTOR * camDist, gone by FADE_FAR_FACTOR * camDist
+    gridMat.uniforms.uCameraPos.value.copy(cameraPos);
+    gridMat.uniforms.uFadeNear.value = cameraDist * FADE_NEAR_FACTOR;
+    gridMat.uniforms.uFadeFar.value  = cameraDist * FADE_FAR_FACTOR;
   }
 
   return { group, update };
