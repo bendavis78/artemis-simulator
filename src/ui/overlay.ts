@@ -1,11 +1,11 @@
 import type { Timeline, PlaybackSpeed } from '../controls/timeline';
-import type { CameraController, FocusTarget } from '../controls/camera';
+import type { CameraController, FocusTarget, ReferencePlane } from '../controls/camera';
 import { MISSION_DURATION_HOURS } from '../constants';
 
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onEclipticPlaneToggle, onMoonOrbitalPlaneToggle }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onEclipticPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
@@ -15,6 +15,7 @@ export function createOverlay(
     onIcrfPlaneToggle: (enabled: boolean) => void;
     onEclipticPlaneToggle: (enabled: boolean) => void;
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
+    onReferencePlaneChange: (plane: ReferencePlane) => void;
   },
 ): HTMLDivElement {
   const overlay = document.createElement('div');
@@ -215,6 +216,10 @@ export function createOverlay(
         <button class="btn focus-btn active" data-focus="earth">Earth</button>
         <button class="btn focus-btn" data-focus="moon">Moon</button>
         <button class="btn focus-btn" data-focus="orion">Orion</button>
+        <div class="separator"></div>
+        <button class="btn plane-btn active" data-plane="icrf">ICRF</button>
+        <button class="btn plane-btn" data-plane="ecliptic">Ecliptic</button>
+        <button class="btn plane-btn" data-plane="lunar">Lunar</button>
         <div class="settings-wrap">
           <div class="settings-panel" id="settings-panel">
             <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
@@ -268,6 +273,15 @@ export function createOverlay(
       const focus = (btn as HTMLElement).dataset.focus as FocusTarget;
       cameraController.setFocus(focus);
       overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  overlay.querySelectorAll('.plane-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const plane = (btn as HTMLElement).dataset.plane as ReferencePlane;
+      onReferencePlaneChange(plane);
+      overlay.querySelectorAll('.plane-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
     });
   });

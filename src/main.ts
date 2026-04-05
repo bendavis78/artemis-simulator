@@ -9,7 +9,7 @@ import { createIcrfPlane, createEclipticPlane, createMoonOrbitalPlane } from './
 import { generateTrajectory } from './trajectory/data';
 import { TrajectoryInterpolator } from './trajectory/interpolate';
 import { createFlightPath } from './trajectory/path';
-import { CameraController } from './controls/camera';
+import { CameraController, type ReferencePlane } from './controls/camera';
 import { Timeline } from './controls/timeline';
 import { createOverlay, updateOverlay } from './ui/overlay';
 import { EARTH_RADIUS, MOON_RADIUS } from './constants';
@@ -172,7 +172,9 @@ createOverlay(timeline, cameraController, {
   onMoonOrbitalPlaneToggle(enabled) {
     moonOrbitalPlane.visible = enabled;
   },
-
+  onReferencePlaneChange(plane: ReferencePlane) {
+    cameraController.setReferencePlane(plane);
+  },
 });
 
 // --- Click to focus ---

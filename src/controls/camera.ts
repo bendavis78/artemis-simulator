@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EARTH_RADIUS, MOON_RADIUS } from '../constants';
+import { getIcrfNormal, getEclipticNormal, getMoonOrbitalNormal } from '../astro/reference-planes';
 
 export type FocusTarget = 'earth' | 'moon' | 'orion';
+export type ReferencePlane = 'icrf' | 'ecliptic' | 'lunar';
 
 interface FocusConfig {
   defaultDistance: number;
@@ -16,10 +18,17 @@ const FOCUS_CONFIGS: Record<FocusTarget, FocusConfig> = {
   orion: { defaultDistance: 2, minDistance: 0.05, maxDistance: 100 },
 };
 
+const PLANE_NORMALS: Record<ReferencePlane, () => THREE.Vector3> = {
+  icrf: getIcrfNormal,
+  ecliptic: getEclipticNormal,
+  lunar: getMoonOrbitalNormal,
+};
+
 export class CameraController {
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   focusTarget: FocusTarget = 'earth';
+  referencePlane: ReferencePlane = 'icrf';
 
   // Current positions of focusable bodies
   private bodyPositions: Record<FocusTarget, THREE.Vector3> = {
@@ -68,6 +77,12 @@ export class CameraController {
 
     this.controls.minDistance = config.minDistance;
     this.controls.maxDistance = config.maxDistance;
+  }
+
+  setReferencePlane(plane: ReferencePlane): void {
+    this.referencePlane = plane;
+    this.camera.up.copy(PLANE_NORMALS[plane]());
+    this.controls.update();
   }
 
   update(): void {

@@ -134,22 +134,32 @@ function createGridGroup(normal: THREE.Vector3, color: number): ReferencePlane {
   return { group, update };
 }
 
-export function createIcrfPlane(): ReferencePlane {
-  return createGridGroup(new THREE.Vector3(0, 1, 0), 0x3366aa);
+export function getIcrfNormal(): THREE.Vector3 {
+  return new THREE.Vector3(0, 1, 0);
 }
 
-export function createEclipticPlane(): ReferencePlane {
+export function getEclipticNormal(): THREE.Vector3 {
   const obliquity = 23.4393 * (Math.PI / 180);
-  const normal = new THREE.Vector3(0, Math.cos(obliquity), Math.sin(obliquity));
-  return createGridGroup(normal, 0xccaa44);
+  return new THREE.Vector3(0, Math.cos(obliquity), Math.sin(obliquity));
 }
 
-export function createMoonOrbitalPlane(): ReferencePlane {
+export function getMoonOrbitalNormal(): THREE.Vector3 {
   const points = getMoonOrbitPoints(256);
   const normal = new THREE.Vector3();
   for (let i = 0; i < points.length - 1; i++) {
     normal.addScaledVector(points[i].clone().cross(points[i + 1]), 1);
   }
-  normal.normalize();
-  return createGridGroup(normal, 0xcccccc);
+  return normal.normalize();
+}
+
+export function createIcrfPlane(): ReferencePlane {
+  return createGridGroup(getIcrfNormal(), 0x3366aa);
+}
+
+export function createEclipticPlane(): ReferencePlane {
+  return createGridGroup(getEclipticNormal(), 0xccaa44);
+}
+
+export function createMoonOrbitalPlane(): ReferencePlane {
+  return createGridGroup(getMoonOrbitalNormal(), 0xcccccc);
 }
