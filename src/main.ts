@@ -63,7 +63,7 @@ const starGeom = new THREE.BufferGeometry();
 starGeom.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
 const starMat = new THREE.PointsMaterial({
   color: 0xffffff,
-  size: 0.8 * window.devicePixelRatio,
+  size: 1.2 * window.devicePixelRatio,
   sizeAttenuation: true,
 });
 const stars = new THREE.Points(starGeom, starMat);
