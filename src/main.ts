@@ -264,12 +264,6 @@ function animate() {
   sunLight.position.copy(sunDir.clone().multiplyScalar(1000));
   earthMaterial.uniforms.sunDirection.value.copy(sunDir);
 
-  // Update sun billboard
-  sunMesh.visible = sunMeshVisible;
-  if (sunMeshVisible) {
-    updateSunMesh(sunDir, camera);
-  }
-
   // Update log depth buffer uniform
   earthMaterial.uniforms.logDepthBufFC.value =
     2.0 / (Math.log(camera.far + 1.0) / Math.LN2);
@@ -283,6 +277,19 @@ function animate() {
   moonMesh.position.copy(moonPos);
   // Tidal locking: Moon's near side faces Earth
   moonMesh.lookAt(0, 0, 0);
+
+  // Update sun billboard
+  sunMesh.visible = sunMeshVisible;
+  if (sunMeshVisible) {
+    updateSunMesh({
+      sunDir,
+      camera,
+      bodies: [
+        { position: earthPos, radius: EARTH_RADIUS },
+        { position: moonPos, radius: MOON_RADIUS },
+      ],
+    });
+  }
 
   // Update spacecraft
   const scPos = interpolator.getPosition(met);
