@@ -1,9 +1,11 @@
 import type { Timeline, PlaybackSpeed } from '../controls/timeline';
 import type { CameraController, FocusTarget, ReferencePlane, CameraMode } from '../controls/camera';
 import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
+import { TimelineScrubController } from '../controls/timeline-scrub';
 
 let currentTimezone = 'UTC';
 let currentClockFormat: '24' | '12' = '24';
+let scrubController: TimelineScrubController | null = null;
 
 export function createOverlay(
   timeline: Timeline,
@@ -77,6 +79,34 @@ export function createOverlay(
 
       .slider-row {
         margin-bottom: 10px;
+        position: relative;
+      }
+      .granularity-label {
+        position: absolute;
+        top: calc(100% + 4px);
+        padding: 2px 8px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #4a9eff;
+        font-size: 11px;
+        font-family: monospace;
+        border-radius: 4px;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .granularity-label.visible {
+        opacity: 1;
+      }
+      .timeline-slider.scrubbing::-webkit-slider-thumb {
+        width: 20px;
+        height: 20px;
+        background: #6ab5ff;
+      }
+      .timeline-slider.scrubbing::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #6ab5ff;
       }
       .timeline-slider {
         width: 100%;
@@ -518,6 +548,11 @@ export function createOverlay(
     if (timeline.state.isPlaying) timeline.togglePlayPause();
     timeline.setMET(parseFloat(slider.value));
   });
+
+  // Fine-grain touch scrubbing (iOS-style vertical offset)
+  const sliderRow = overlay.querySelector('.slider-row') as HTMLElement;
+  scrubController = new TimelineScrubController({ timeline, liveState, sliderEl: slider, sliderRow });
+  scrubController.attach();
 
   const playBtn = overlay.querySelector('#btn-play') as HTMLButtonElement;
   playBtn.addEventListener('click', () => {
@@ -1021,9 +1056,11 @@ export function updateOverlay(
     ? '&#9646;&#9646;'
     : '&#9654;';
 
-  // Update slider
-  (document.getElementById('timeline-slider') as HTMLInputElement).value =
-    String(met);
+  // Update slider (skip during active touch scrub to prevent fighting)
+  if (!scrubController?.isScrubbing()) {
+    (document.getElementById('timeline-slider') as HTMLInputElement).value =
+      String(met);
+  }
 
   // Update info
   document.getElementById('dist-earth')!.textContent = formatDistance(
