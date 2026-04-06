@@ -203,7 +203,7 @@ export function createSpacecraft(): {
   }
 
   // --- Rotate inner group: +Y → -Z (nose forward for lookAt) ---
-  inner.rotation.x = -Math.PI / 2;
+  inner.rotation.x = Math.PI / 2;
   group.add(inner);
 
   // --- Sprite marker for long-distance visibility ---

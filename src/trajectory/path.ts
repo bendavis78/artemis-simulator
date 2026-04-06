@@ -14,7 +14,7 @@ export function createFlightPath(interpolator: TrajectoryInterpolator): {
   progressPath: Line2;
   update: (fraction: number) => void;
 } {
-  const allPoints = interpolator.getCurvePoints(2000);
+  const allPoints = interpolator.getCurvePoints(50000);
 
   // Flatten positions for LineGeometry
   const positions = new Float32Array(allPoints.length * 3);
@@ -75,8 +75,8 @@ export function createFlightPath(interpolator: TrajectoryInterpolator): {
   progressPath.name = 'flightPathProgress';
 
   function update(fraction: number) {
-    const count = Math.max(1, Math.floor(fraction * (allPoints.length - 1)));
-    progressPath.geometry.instanceCount = count;
+    const count = Math.max(1, Math.floor(fraction * (allPoints.length - 1)) + 1);
+    progressPath.geometry.instanceCount = Math.min(count, allPoints.length - 1);
   }
 
   // Update resolution on resize

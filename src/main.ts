@@ -249,12 +249,16 @@ function animate() {
 
   // Update spacecraft
   const scPos = interpolator.getPosition(met);
-  spacecraftGroup.position.copy(scPos);
   spacecraftMarker.position.copy(scPos);
 
   // Orient spacecraft along velocity vector
   const velDir = interpolator.getVelocityDirection(met);
-  const lookTarget = scPos.clone().add(velDir);
+  // Offset so the nozzle (aft end) sits at the trajectory point
+  // and the nose extends forward along velocity
+  const halfLen = 0.075; // half of S=0.15
+  const offsetPos = scPos.clone().add(velDir.clone().multiplyScalar(halfLen));
+  spacecraftGroup.position.copy(offsetPos);
+  const lookTarget = offsetPos.clone().add(velDir);
   spacecraftGroup.lookAt(lookTarget);
 
   // Spacecraft visibility: show model when close, marker when far
