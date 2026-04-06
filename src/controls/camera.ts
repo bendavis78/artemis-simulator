@@ -5,7 +5,7 @@ import { getIcrfNormal, getEclipticNormal, getMoonOrbitalNormal } from '../astro
 
 export type FocusTarget = 'earth' | 'moon' | 'orion';
 export type ReferencePlane = 'icrf' | 'ecliptic' | 'lunar';
-export type CameraMode = 'free' | 'moon-near-side';
+export type CameraMode = 'free' | 'earth-pov' | 'orion-pov';
 
 const CAMERA_STORAGE_KEY = 'artemis-camera-v1';
 
@@ -114,9 +114,11 @@ export class CameraController {
     }
     this.focusTarget = state.focusTarget;
     this.referencePlane = state.referencePlane;
-    this.cameraMode = state.cameraMode ?? 'free';
+    // Migrate old mode name
+    const rawMode = state.cameraMode ?? 'free';
+    this.cameraMode = rawMode === ('moon-near-side' as string) ? 'earth-pov' : rawMode;
     this.camera.up.copy(PLANE_NORMALS[state.referencePlane]());
-    if (this.cameraMode === 'moon-near-side') {
+    if (this.cameraMode !== 'free') {
       this.controls.enableRotate = false;
       this.controls.enablePan = false;
     }
@@ -140,8 +142,8 @@ export class CameraController {
   }
 
   setFocus(target: FocusTarget): void {
-    // Changing focus target always exits near-side lock
-    if (this.cameraMode === 'moon-near-side') {
+    // Changing focus target always exits POV lock
+    if (this.cameraMode !== 'free') {
       this.setCameraMode('free');
     }
 
@@ -167,8 +169,22 @@ export class CameraController {
 
   setCameraMode(mode: CameraMode): void {
     this.cameraMode = mode;
-    if (mode === 'moon-near-side') {
-      // Focus on moon and lock rotation
+    if (mode === 'earth-pov') {
+      // Focus on moon and lock rotation (view from Earth's perspective)
+      if (this.focusTarget !== 'moon') {
+        const config = FOCUS_CONFIGS.moon;
+        const moonPos = this.bodyPositions.moon;
+        this.controls.target.copy(moonPos);
+        this.focusTarget = 'moon';
+        this.lastBodyPos.copy(moonPos);
+        this.controls.minDistance = config.minDistance;
+        this.controls.maxDistance = config.maxDistance;
+        this.targetDistance = config.defaultDistance;
+      }
+      this.controls.enableRotate = false;
+      this.controls.enablePan = false;
+    } else if (mode === 'orion-pov') {
+      // Focus on moon, viewed from Orion's position
       if (this.focusTarget !== 'moon') {
         const config = FOCUS_CONFIGS.moon;
         const moonPos = this.bodyPositions.moon;
@@ -221,14 +237,25 @@ export class CameraController {
 
     this.controls.update();
 
-    // Moon near-side lock: force camera onto Earth-Moon line (Earth-facing side)
-    if (this.cameraMode === 'moon-near-side') {
+    // Earth POV: force camera onto Earth-Moon line (Earth-facing side)
+    if (this.cameraMode === 'earth-pov') {
       const moonPos = this.bodyPositions.moon;
       // Earth is at origin; direction from moon toward earth
       const moonToEarth = moonPos.clone().negate().normalize();
       const currentDistance = this.camera.position.distanceTo(moonPos);
       this.controls.target.copy(moonPos);
       this.camera.position.copy(moonPos).addScaledVector(moonToEarth, currentDistance);
+    }
+
+    // Orion POV: camera on Orion-Moon line (Moon as seen from Orion)
+    if (this.cameraMode === 'orion-pov') {
+      const moonPos = this.bodyPositions.moon;
+      const orionPos = this.bodyPositions.orion;
+      // Direction from moon toward orion
+      const moonToOrion = orionPos.clone().sub(moonPos).normalize();
+      const currentDistance = this.camera.position.distanceTo(moonPos);
+      this.controls.target.copy(moonPos);
+      this.camera.position.copy(moonPos).addScaledVector(moonToOrion, currentDistance);
     }
 
     // Smooth zoom: lerp current distance toward targetDistance

@@ -152,6 +152,12 @@ export function createOverlay(
         50% { opacity: 0.3; }
       }
 
+      .pov-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .separator {
         width: 1px;
         height: 20px;
@@ -241,8 +247,12 @@ export function createOverlay(
         <div class="separator"></div>
         <button class="btn focus-btn" data-focus="earth">Earth</button>
         <button class="btn focus-btn" data-focus="moon">Moon</button>
-        <button class="btn mode-btn" data-mode="moon-near-side">Near Side</button>
         <button class="btn focus-btn" data-focus="orion">Orion</button>
+        <span class="pov-group" id="pov-group" style="display:none;">
+          <div class="separator"></div>
+          <button class="btn mode-btn" data-mode="earth-pov">Earth POV</button>
+          <button class="btn mode-btn" data-mode="orion-pov">Orion POV</button>
+        </span>
         <div class="separator"></div>
         <button class="btn plane-btn" data-plane="icrf">ICRF</button>
         <button class="btn plane-btn" data-plane="lunar">Lunar</button>
@@ -274,11 +284,13 @@ export function createOverlay(
   document.body.appendChild(overlay);
 
   // Reflect restored camera state in buttons
+  const povGroup = overlay.querySelector('#pov-group') as HTMLElement;
   overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
   overlay.querySelector(`.plane-btn[data-plane="${cameraController.referencePlane}"]`)?.classList.add('active');
   if (cameraController.cameraMode !== 'free') {
     overlay.querySelector(`.mode-btn[data-mode="${cameraController.cameraMode}"]`)?.classList.add('active');
   }
+  povGroup.style.display = cameraController.focusTarget === 'moon' ? '' : 'none';
 
   const liveState = { isLive: false };
 
@@ -327,6 +339,7 @@ export function createOverlay(
       overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
       overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
+      povGroup.style.display = focus === 'moon' ? '' : 'none';
     });
   });
 
@@ -335,16 +348,18 @@ export function createOverlay(
       const mode = (btn as HTMLElement).dataset.mode as CameraMode;
       const isActive = btn.classList.contains('active');
       if (isActive) {
-        // Toggle off: return to free mode focused on moon
+        // Toggle off: return to free mode, keep focus on the mode's body
         cameraController.setCameraMode('free');
         overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+        // Sync focus button with current focus target
         overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-        overlay.querySelector('.focus-btn[data-focus="moon"]')?.classList.add('active');
+        overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
       } else {
         cameraController.setCameraMode(mode);
         overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
         overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-        overlay.querySelector('.focus-btn[data-focus="moon"]')?.classList.add('active');
+        // Highlight the focus body that the mode locked to
+        overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
         btn.classList.add('active');
       }
     });
