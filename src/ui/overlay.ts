@@ -327,18 +327,18 @@ export function createOverlay(
           <span class="group-label">SPEED</span>
           <button class="btn speed-btn" data-speed="1">1x</button>
           <button class="btn speed-btn" data-speed="10">10x</button>
-          <button class="btn speed-btn active" data-speed="100">100x</button>
+          <button class="btn speed-btn" data-speed="100">100x</button>
           <button class="btn speed-btn" data-speed="1000">1Kx</button>
-          <button class="btn speed-btn" data-speed="10000">10Kx</button>
+          <button class="btn speed-btn active" data-speed="10000">10Kx</button>
         </span>
         <div class="dropup" id="speed-dropup">
-          <button class="dropup-trigger" id="speed-dropup-trigger">100x</button>
+          <button class="dropup-trigger" id="speed-dropup-trigger">10Kx</button>
           <div class="dropup-menu" id="speed-dropup-menu">
             <button class="dropup-item speed-btn" data-speed="1">1x</button>
             <button class="dropup-item speed-btn" data-speed="10">10x</button>
-            <button class="dropup-item speed-btn active" data-speed="100">100x</button>
+            <button class="dropup-item speed-btn" data-speed="100">100x</button>
             <button class="dropup-item speed-btn" data-speed="1000">1Kx</button>
-            <button class="dropup-item speed-btn" data-speed="10000">10Kx</button>
+            <button class="dropup-item speed-btn active" data-speed="10000">10Kx</button>
           </div>
         </div>
         <div class="separator"></div>
@@ -410,6 +410,7 @@ export function createOverlay(
   const slider = overlay.querySelector('#timeline-slider') as HTMLInputElement;
   slider.addEventListener('input', () => {
     liveState.isLive = false;
+    if (timeline.state.isPlaying) timeline.togglePlayPause();
     timeline.setMET(parseFloat(slider.value));
   });
 
@@ -528,7 +529,7 @@ export function createOverlay(
     onReferencePlaneChange(refPlaneSelect.value as ReferencePlane);
   });
 
-  // Arrow key timeline scrubbing
+  // Keyboard shortcuts
   const ARROW_INTERVALS: Record<number, number> = {
     1: 15 / 60,     // 15 minutes
     10: 1,          // 1 hour
@@ -537,17 +538,111 @@ export function createOverlay(
     10000: 24,      // 1 day
   };
 
+  const SPEEDS: PlaybackSpeed[] = [1, 10, 100, 1000, 10000];
+
+  function setSpeedAndSync(speed: PlaybackSpeed): void {
+    timeline.setSpeed(speed);
+    overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelectorAll(`.speed-btn[data-speed="${speed}"]`).forEach((b) => b.classList.add('active'));
+    speedDropupTrigger.textContent = SPEED_LABELS[String(speed)] ?? `${speed}x`;
+  }
+
+  function setFocusAndSync(focus: FocusTarget): void {
+    cameraController.setFocus(focus);
+    overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelectorAll(`.focus-btn[data-focus="${focus}"]`).forEach((b) => b.classList.add('active'));
+    overlay.querySelectorAll('.mode-btn[data-mode="free"]').forEach((b) => b.classList.add('active'));
+    focusDropupTrigger.textContent = focusLabel[focus];
+    povDropupTrigger.textContent = modeLabel.free;
+  }
+
+  function setModeAndSync(mode: CameraMode): void {
+    cameraController.setCameraMode(mode);
+    overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelectorAll(`.mode-btn[data-mode="${mode}"]`).forEach((b) => b.classList.add('active'));
+    overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelectorAll(`.focus-btn[data-focus="${cameraController.focusTarget}"]`).forEach((b) => b.classList.add('active'));
+    focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
+    povDropupTrigger.textContent = modeLabel[mode];
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    liveState.isLive = false;
-    const interval = ARROW_INTERVALS[timeline.state.playbackSpeed] ?? 1;
-    const cur = timeline.state.currentMET;
-    const newMET = e.key === 'ArrowRight'
-      ? Math.floor(cur / interval + 1e-9) * interval + interval
-      : Math.ceil(cur / interval - 1e-9) * interval - interval;
-    timeline.setMET(newMET);
+
+    // Left/Right: timeline scrubbing
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      liveState.isLive = false;
+      if (timeline.state.isPlaying) timeline.togglePlayPause();
+      const interval = ARROW_INTERVALS[timeline.state.playbackSpeed] ?? 1;
+      const cur = timeline.state.currentMET;
+      const newMET = e.key === 'ArrowRight'
+        ? Math.floor(cur / interval + 1e-9) * interval + interval
+        : Math.ceil(cur / interval - 1e-9) * interval - interval;
+      timeline.setMET(newMET);
+      return;
+    }
+
+    // Up/Down: speed increment/decrement
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const curIdx = SPEEDS.indexOf(timeline.state.playbackSpeed as PlaybackSpeed);
+      const newIdx = e.key === 'ArrowUp'
+        ? Math.min(curIdx + 1, SPEEDS.length - 1)
+        : Math.max(curIdx - 1, 0);
+      if (SPEEDS[newIdx] !== 1) liveState.isLive = false;
+      setSpeedAndSync(SPEEDS[newIdx]);
+      return;
+    }
+
+    // Space: play/pause
+    if (e.key === ' ') {
+      e.preventDefault();
+      liveState.isLive = false;
+      timeline.togglePlayPause();
+      return;
+    }
+
+    // L: toggle live
+    if (e.key === 'l') {
+      liveState.isLive = !liveState.isLive;
+      if (liveState.isLive) {
+        setSpeedAndSync(1);
+        const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
+        timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
+        if (!timeline.state.isPlaying) timeline.togglePlayPause();
+      }
+      return;
+    }
+
+    // Shift+E: toggle Earth POV
+    if (e.key === 'E' && e.shiftKey) {
+      const mode = cameraController.cameraMode === 'earth-pov' ? 'free' : 'earth-pov';
+      setModeAndSync(mode);
+      return;
+    }
+
+    // Shift+O: toggle Orion POV (auto-switches focus to orion)
+    if (e.key === 'O' && e.shiftKey) {
+      const mode = cameraController.cameraMode === 'orion-pov' ? 'free' : 'orion-pov';
+      setModeAndSync(mode);
+      return;
+    }
+
+    // PageUp/PageDown: zoom in/out
+    if (e.key === 'PageUp') { e.preventDefault(); cameraController.zoom(-3); return; }
+    if (e.key === 'PageDown') { e.preventDefault(); cameraController.zoom(3); return; }
+    // Home/End: zoom all the way in/out
+    if (e.key === 'Home') { e.preventDefault(); cameraController.zoomToLimit('in'); return; }
+    if (e.key === 'End') { e.preventDefault(); cameraController.zoomToLimit('out'); return; }
+
+    // e: focus earth
+    if (e.key === 'e') { setFocusAndSync('earth'); return; }
+    // m: focus moon
+    if (e.key === 'm') { setFocusAndSync('moon'); return; }
+    // o: focus orion
+    if (e.key === 'o') { setFocusAndSync('orion'); return; }
   });
 
   // Settings gear
@@ -555,6 +650,11 @@ export function createOverlay(
   const settingsPanel = overlay.querySelector('#settings-panel') as HTMLDivElement;
   settingsToggle.addEventListener('click', () => {
     settingsPanel.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('.settings-wrap')) {
+      settingsPanel.classList.remove('open');
+    }
   });
 
   overlay.querySelector('#reset-state')!.addEventListener('click', () => {

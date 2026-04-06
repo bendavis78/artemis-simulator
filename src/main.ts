@@ -133,6 +133,16 @@ let flightPath = createFlightPath(interpolator);
 scene.add(flightPath.fullPath);
 scene.add(flightPath.progressPath);
 
+// Fit default camera view to the flight path bounding sphere
+{
+  const pts = interpolator.getCurvePoints(500);
+  const box = new THREE.Box3();
+  for (const p of pts) box.expandByPoint(p);
+  const sphere = new THREE.Sphere();
+  box.getBoundingSphere(sphere);
+  cameraController.fitToSphere(sphere);
+}
+
 // --- Spacecraft ---
 const { group: spacecraftGroup, marker: spacecraftMarker } =
   createSpacecraft();
@@ -262,12 +272,14 @@ function animate() {
   spacecraftGroup.lookAt(lookTarget);
 
   // Spacecraft visibility: show model when close, marker when far
+  // Hide ship entirely in orion-pov (camera is at the ship)
   const camDist = camera.position.distanceTo(scPos);
-  spacecraftGroup.visible = orionVisible && camDist < 10;
+  const showOrion = orionVisible && cameraController.cameraMode !== 'orion-pov';
+  spacecraftGroup.visible = showOrion && camDist < 10;
   // Fade marker out as camera approaches
   const markerFadeEnd = 5;   // distance at which marker is fully transparent
   const markerFadeStart = 25; // distance at which marker is fully opaque
-  const markerOpacity = orionVisible ? THREE.MathUtils.clamp((camDist - markerFadeEnd) / (markerFadeStart - markerFadeEnd), 0, 1) : 0;
+  const markerOpacity = showOrion ? THREE.MathUtils.clamp((camDist - markerFadeEnd) / (markerFadeStart - markerFadeEnd), 0, 1) : 0;
   spacecraftMarker.visible = markerOpacity > 0 && !spacecraftGroup.visible;
   (spacecraftMarker.material as THREE.SpriteMaterial).opacity = markerOpacity;
   // Scale marker based on distance
@@ -302,7 +314,12 @@ function animate() {
   const debugZoom = cameraController.cameraMode !== 'free'
     ? `FOV ${camera.fov.toFixed(1)}°`
     : camera.position.distanceTo(cameraController.controls.target).toFixed(1);
-  setDebugValues({ zoom: debugZoom });
+  // Camera direction as spherical coords relative to focus target (for reproducing views)
+  const camOffset = camera.position.clone().sub(cameraController.controls.target);
+  const camSpherical = new THREE.Spherical().setFromVector3(camOffset);
+  const camPhi = THREE.MathUtils.radToDeg(camSpherical.phi).toFixed(1);
+  const camTheta = THREE.MathUtils.radToDeg(camSpherical.theta).toFixed(1);
+  setDebugValues({ zoom: debugZoom, phi: `${camPhi}°`, theta: `${camTheta}°` });
 
   // Debug
   if (DEBUG_CAMERA) {

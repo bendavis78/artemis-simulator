@@ -13,8 +13,8 @@ export class Timeline {
 
   constructor() {
     this.state = {
-      currentMET: 0,
-      playbackSpeed: 100,
+      currentMET: 3.4,     // Start at ICPS separation
+      playbackSpeed: 10000,
       isPlaying: false,
     };
   }

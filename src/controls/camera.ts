@@ -117,9 +117,18 @@ export class CameraController {
     localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(state));
   }
 
+  /** Whether this is a fresh session (no saved camera state). */
+  isFreshSession = false;
+
   restoreState(): void {
     const raw = localStorage.getItem(CAMERA_STORAGE_KEY);
-    if (!raw) return;
+    if (!raw) {
+      this.isFreshSession = true;
+      this.focusTarget = 'orion';
+      this.controls.minDistance = FOCUS_CONFIGS.orion.minDistance;
+      this.controls.maxDistance = FOCUS_CONFIGS.orion.maxDistance;
+      return;
+    }
     let state: CameraState;
     try {
       state = JSON.parse(raw) as CameraState;
@@ -142,6 +151,39 @@ export class CameraController {
     this.pendingRestore = state;
   }
 
+  /**
+   * Set up the default camera view to fit a bounding sphere in the viewport.
+   * Call after restoreState() and after the flight path is created.
+   * Only applies on fresh sessions (no saved state).
+   */
+  fitToSphere(sphere: THREE.Sphere): void {
+    if (!this.isFreshSession) return;
+
+    const fovRad = THREE.MathUtils.degToRad(CameraController.DEFAULT_FOV);
+    const aspect = this.camera.aspect;
+    // Use the narrower dimension to ensure the sphere fits fully
+    const effectiveFov = aspect >= 1 ? fovRad : 2 * Math.atan(Math.tan(fovRad / 2) * aspect);
+    // Distance from sphere center so the sphere fits within the half-angle
+    const distance = sphere.radius / Math.sin(effectiveFov / 2);
+
+    const spherical = new THREE.Spherical(
+      distance,
+      THREE.MathUtils.degToRad(30),
+      THREE.MathUtils.degToRad(180),
+    );
+    const offset = new THREE.Vector3().setFromSpherical(spherical);
+    this.targetDistance = distance;
+    this.pendingRestore = {
+      focusTarget: 'orion',
+      referencePlane: 'icrf',
+      cameraMode: 'free',
+      offsetX: offset.x,
+      offsetY: offset.y,
+      offsetZ: offset.z,
+      targetDistance: distance,
+    };
+  }
+
   private handleWheel(event: WheelEvent): void {
     event.preventDefault();
     const delta = event.deltaY > 0 ? 1 : -1;
@@ -162,6 +204,35 @@ export class CameraController {
         config.minDistance,
         config.maxDistance
       );
+    }
+  }
+
+  /** Programmatic zoom: steps < 0 zoom in, steps > 0 zoom out. */
+  zoom(steps: number): void {
+    const factor = Math.pow(1 + this.ZOOM_SPEED, steps);
+    if (this.cameraMode !== 'free') {
+      this.targetFOV = THREE.MathUtils.clamp(
+        this.targetFOV * factor,
+        CameraController.MIN_FOV,
+        CameraController.MAX_FOV,
+      );
+    } else {
+      const config = FOCUS_CONFIGS[this.focusTarget];
+      this.targetDistance = THREE.MathUtils.clamp(
+        this.targetDistance * factor,
+        config.minDistance,
+        config.maxDistance,
+      );
+    }
+  }
+
+  /** Jump zoom to min (in) or max (out) distance/FOV. */
+  zoomToLimit(direction: 'in' | 'out'): void {
+    if (this.cameraMode !== 'free') {
+      this.targetFOV = direction === 'in' ? CameraController.MIN_FOV : CameraController.MAX_FOV;
+    } else {
+      const config = FOCUS_CONFIGS[this.focusTarget];
+      this.targetDistance = direction === 'in' ? config.minDistance : config.maxDistance;
     }
   }
 
