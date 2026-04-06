@@ -5,7 +5,7 @@ import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onGridFadeToggle, onReferencePlaneChange }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
@@ -14,7 +14,6 @@ export function createOverlay(
     onOrionToggle: (enabled: boolean) => void;
     onIcrfPlaneToggle: (enabled: boolean) => void;
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
-    onGridFadeToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
   },
 ): { overlay: HTMLDivElement; liveState: { isLive: boolean } } {
@@ -33,7 +32,8 @@ export function createOverlay(
         z-index: 100;
         user-select: none;
       }
-      #overlay * { pointer-events: auto; }
+      #overlay button, #overlay input, #overlay select, #overlay label,
+      #overlay .dropup-menu { pointer-events: auto; }
 
       .top-bar {
         display: flex;
@@ -152,17 +152,18 @@ export function createOverlay(
         50% { opacity: 0.3; }
       }
 
-      .pov-group {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-      }
-
       .separator {
         width: 1px;
         height: 20px;
         background: rgba(255,255,255,0.2);
         margin: 0 4px;
+      }
+      .group-label {
+        font-size: 0.6em;
+        color: rgba(255,255,255,0.35);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-right: -2px;
       }
 
       .info-row {
@@ -224,6 +225,82 @@ export function createOverlay(
       }
       .settings-panel label:hover { color: #fff; }
       .settings-panel input[type="checkbox"] { accent-color: #4a9eff; }
+      .settings-select {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 1em;
+        padding: 2px 4px;
+        border-radius: 3px;
+        margin-left: 8px;
+        cursor: pointer;
+        outline: none;
+      }
+      .settings-select:hover { border-color: rgba(255,255,255,0.4); }
+      .settings-select:focus { border-color: #4a9eff; }
+      .settings-select option { background: #1a1a1a; color: #ccc; }
+
+      /* Drop-up menus for mobile */
+      .dropup {
+        position: relative;
+        display: none;
+      }
+      .dropup-trigger {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #ccc;
+        padding: 4px 10px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.75em;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .dropup-trigger::after {
+        content: ' \u25B4';
+      }
+      .dropup-trigger:hover { background: rgba(255,255,255,0.2); color: #fff; }
+      .dropup-menu {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 0;
+        background: rgba(0,0,0,0.9);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 4px;
+        padding: 4px 0;
+        z-index: 200;
+        min-width: 100%;
+      }
+      .dropup-menu.open { display: block; }
+      .dropup-item {
+        display: block;
+        width: 100%;
+        background: none;
+        border: none;
+        color: #ccc;
+        padding: 6px 14px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.75em;
+        cursor: pointer;
+        text-align: left;
+        white-space: nowrap;
+      }
+      .dropup-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+      .dropup-item.active { color: #4a9eff; }
+
+      /* Desktop: show inline buttons, hide dropups */
+      .speed-inline, .focus-inline { display: contents; }
+
+      /* Mobile layout */
+      @media (max-width: 600px) {
+        .speed-inline, .focus-inline { display: none; }
+        .dropup { display: inline-block; }
+        .separator { display: none; }
+        .info-row { flex-wrap: wrap; gap: 8px; }
+      }
     </style>
 
     <div class="top-bar">
@@ -246,23 +323,48 @@ export function createOverlay(
         <button class="btn btn-play" id="btn-play">&#9654;</button>
         <button class="btn btn-live" id="btn-live"><span class="live-dot"></span>LIVE</button>
         <div class="separator"></div>
-        <button class="btn speed-btn" data-speed="1">1x</button>
-        <button class="btn speed-btn" data-speed="10">10x</button>
-        <button class="btn speed-btn active" data-speed="100">100x</button>
-        <button class="btn speed-btn" data-speed="1000">1Kx</button>
-        <button class="btn speed-btn" data-speed="10000">10Kx</button>
-        <div class="separator"></div>
-        <button class="btn focus-btn" data-focus="earth">Earth</button>
-        <button class="btn focus-btn" data-focus="moon">Moon</button>
-        <button class="btn focus-btn" data-focus="orion">Orion</button>
-        <span class="pov-group" id="pov-group" style="display:none;">
-          <div class="separator"></div>
-          <button class="btn mode-btn" data-mode="earth-pov">Earth POV</button>
-          <button class="btn mode-btn" data-mode="orion-pov">Orion POV</button>
+        <span class="speed-inline">
+          <span class="group-label">SPEED</span>
+          <button class="btn speed-btn" data-speed="1">1x</button>
+          <button class="btn speed-btn" data-speed="10">10x</button>
+          <button class="btn speed-btn active" data-speed="100">100x</button>
+          <button class="btn speed-btn" data-speed="1000">1Kx</button>
+          <button class="btn speed-btn" data-speed="10000">10Kx</button>
         </span>
+        <div class="dropup" id="speed-dropup">
+          <button class="dropup-trigger" id="speed-dropup-trigger">100x</button>
+          <div class="dropup-menu" id="speed-dropup-menu">
+            <button class="dropup-item speed-btn" data-speed="1">1x</button>
+            <button class="dropup-item speed-btn" data-speed="10">10x</button>
+            <button class="dropup-item speed-btn active" data-speed="100">100x</button>
+            <button class="dropup-item speed-btn" data-speed="1000">1Kx</button>
+            <button class="dropup-item speed-btn" data-speed="10000">10Kx</button>
+          </div>
+        </div>
         <div class="separator"></div>
-        <button class="btn plane-btn" data-plane="icrf">ICRF</button>
-        <button class="btn plane-btn" data-plane="lunar">Lunar</button>
+        <span class="focus-inline">
+          <span class="group-label">FOCUS</span>
+          <button class="btn focus-btn" data-focus="earth">Earth</button>
+          <button class="btn focus-btn" data-focus="moon">Moon</button>
+          <button class="btn focus-btn" data-focus="orion">Orion</button>
+        </span>
+        <div class="dropup" id="focus-dropup">
+          <button class="dropup-trigger" id="focus-dropup-trigger">Earth</button>
+          <div class="dropup-menu" id="focus-dropup-menu">
+            <button class="dropup-item focus-btn" data-focus="earth">Earth</button>
+            <button class="dropup-item focus-btn" data-focus="moon">Moon</button>
+            <button class="dropup-item focus-btn" data-focus="orion">Orion</button>
+          </div>
+        </div>
+        <div class="separator"></div>
+        <div class="dropup" id="pov-dropup" style="display:inline-block;">
+          <button class="dropup-trigger" id="pov-dropup-trigger">Free</button>
+          <div class="dropup-menu" id="pov-dropup-menu">
+            <button class="dropup-item mode-btn" data-mode="free">Free</button>
+            <button class="dropup-item mode-btn" data-mode="earth-pov">Earth POV</button>
+            <button class="dropup-item mode-btn" data-mode="orion-pov">Orion POV</button>
+          </div>
+        </div>
         <div class="settings-wrap">
           <div class="settings-panel" id="settings-panel">
             <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
@@ -273,7 +375,14 @@ export function createOverlay(
             <label style="margin-top: 6px;"><input type="checkbox" id="orion-toggle" checked> Orion</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="icrf-plane-toggle"> ICRF Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbital-plane-toggle"> Moon Orbital Plane</label>
-            <label style="margin-top: 6px;"><input type="checkbox" id="grid-fade-toggle" checked> Grid Fade</label>
+            <label style="margin-top: 10px;">
+              Ref. Plane
+              <select id="ref-plane-select" class="settings-select">
+                <option value="icrf">ICRF</option>
+                <option value="lunar">Lunar</option>
+              </select>
+            </label>
+            <button class="btn" id="reset-state" style="margin-top: 12px; width: 100%; color: #e05555; border-color: rgba(220,50,50,0.3);">Reset Settings</button>
           </div>
           <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
         </div>
@@ -292,13 +401,8 @@ export function createOverlay(
   document.body.appendChild(overlay);
 
   // Reflect restored camera state in buttons
-  const povGroup = overlay.querySelector('#pov-group') as HTMLElement;
-  overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
-  overlay.querySelector(`.plane-btn[data-plane="${cameraController.referencePlane}"]`)?.classList.add('active');
-  if (cameraController.cameraMode !== 'free') {
-    overlay.querySelector(`.mode-btn[data-mode="${cameraController.cameraMode}"]`)?.classList.add('active');
-  }
-  povGroup.style.display = cameraController.focusTarget === 'moon' ? '' : 'none';
+  overlay.querySelectorAll(`.focus-btn[data-focus="${cameraController.focusTarget}"]`).forEach((b) => b.classList.add('active'));
+  overlay.querySelectorAll(`.mode-btn[data-mode="${cameraController.cameraMode}"]`).forEach((b) => b.classList.add('active'));
 
   const liveState = { isLive: false };
 
@@ -320,13 +424,57 @@ export function createOverlay(
     liveState.isLive = true;
     timeline.setSpeed(1);
     overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelector('.speed-btn[data-speed="1"]')!.classList.add('active');
+    overlay.querySelectorAll('.speed-btn[data-speed="1"]').forEach((b) => b.classList.add('active'));
+    speedDropupTrigger.textContent = '1x';
     const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
     timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
     if (!timeline.state.isPlaying) {
       timeline.togglePlayPause();
     }
   });
+
+  // Drop-up menu toggling
+  const speedDropupTrigger = overlay.querySelector('#speed-dropup-trigger') as HTMLButtonElement;
+  const speedDropupMenu = overlay.querySelector('#speed-dropup-menu') as HTMLDivElement;
+  const focusDropupTrigger = overlay.querySelector('#focus-dropup-trigger') as HTMLButtonElement;
+  const focusDropupMenu = overlay.querySelector('#focus-dropup-menu') as HTMLDivElement;
+
+  const povDropupTrigger = overlay.querySelector('#pov-dropup-trigger') as HTMLButtonElement;
+  const povDropupMenu = overlay.querySelector('#pov-dropup-menu') as HTMLDivElement;
+
+  // Sync dropup trigger labels with restored state
+  const focusLabel: Record<FocusTarget, string> = { earth: 'Earth', moon: 'Moon', orion: 'Orion' };
+  const modeLabel: Record<CameraMode, string> = { free: 'Free', 'earth-pov': 'Earth POV', 'orion-pov': 'Orion POV' };
+  focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
+  povDropupTrigger.textContent = modeLabel[cameraController.cameraMode];
+
+  const allDropupMenus = [speedDropupMenu, focusDropupMenu, povDropupMenu];
+  function closeAllDropups(except?: HTMLElement): void {
+    for (const menu of allDropupMenus) {
+      if (menu !== except) menu.classList.remove('open');
+    }
+  }
+
+  speedDropupTrigger.addEventListener('click', () => {
+    closeAllDropups(speedDropupMenu);
+    speedDropupMenu.classList.toggle('open');
+  });
+  focusDropupTrigger.addEventListener('click', () => {
+    closeAllDropups(focusDropupMenu);
+    focusDropupMenu.classList.toggle('open');
+  });
+  povDropupTrigger.addEventListener('click', () => {
+    closeAllDropups(povDropupMenu);
+    povDropupMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('#speed-dropup')) speedDropupMenu.classList.remove('open');
+    if (!target.closest('#focus-dropup')) focusDropupMenu.classList.remove('open');
+    if (!target.closest('#pov-dropup')) povDropupMenu.classList.remove('open');
+  });
+
+  const SPEED_LABELS: Record<string, string> = { '1': '1x', '10': '10x', '100': '100x', '1000': '1Kx', '10000': '10Kx' };
 
   overlay.querySelectorAll('.speed-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -336,7 +484,10 @@ export function createOverlay(
       if (speed !== 1) liveState.isLive = false;
       timeline.setSpeed(speed);
       overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
+      // Activate all matching speed buttons (inline + dropup)
+      overlay.querySelectorAll(`.speed-btn[data-speed="${speed}"]`).forEach((b) => b.classList.add('active'));
+      speedDropupTrigger.textContent = SPEED_LABELS[String(speed)] ?? `${speed}x`;
+      speedDropupMenu.classList.remove('open');
     });
   });
 
@@ -344,42 +495,37 @@ export function createOverlay(
     btn.addEventListener('click', () => {
       const focus = (btn as HTMLElement).dataset.focus as FocusTarget;
       cameraController.setFocus(focus);
+      // setFocus exits POV mode, so sync everything
       overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
       overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      povGroup.style.display = focus === 'moon' ? '' : 'none';
+      overlay.querySelectorAll(`.focus-btn[data-focus="${focus}"]`).forEach((b) => b.classList.add('active'));
+      overlay.querySelectorAll('.mode-btn[data-mode="free"]').forEach((b) => b.classList.add('active'));
+      focusDropupTrigger.textContent = focusLabel[focus];
+      povDropupTrigger.textContent = modeLabel.free;
+      focusDropupMenu.classList.remove('open');
     });
   });
 
   overlay.querySelectorAll('.mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const mode = (btn as HTMLElement).dataset.mode as CameraMode;
-      const isActive = btn.classList.contains('active');
-      if (isActive) {
-        // Toggle off: return to free mode, keep focus on the mode's body
-        cameraController.setCameraMode('free');
-        overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-        // Sync focus button with current focus target
-        overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-        overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
-      } else {
-        cameraController.setCameraMode(mode);
-        overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-        overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-        // Highlight the focus body that the mode locked to
-        overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
-        btn.classList.add('active');
-      }
+      cameraController.setCameraMode(mode);
+      overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+      overlay.querySelectorAll(`.mode-btn[data-mode="${mode}"]`).forEach((b) => b.classList.add('active'));
+      // Sync focus buttons with whatever focus target the mode set
+      overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+      overlay.querySelectorAll(`.focus-btn[data-focus="${cameraController.focusTarget}"]`).forEach((b) => b.classList.add('active'));
+      focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
+      povDropupTrigger.textContent = modeLabel[mode];
+      povDropupMenu.classList.remove('open');
     });
   });
 
-  overlay.querySelectorAll('.plane-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const plane = (btn as HTMLElement).dataset.plane as ReferencePlane;
-      onReferencePlaneChange(plane);
-      overlay.querySelectorAll('.plane-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
+  // Reference plane dropdown
+  const refPlaneSelect = overlay.querySelector('#ref-plane-select') as HTMLSelectElement;
+  refPlaneSelect.value = cameraController.referencePlane;
+  refPlaneSelect.addEventListener('change', () => {
+    onReferencePlaneChange(refPlaneSelect.value as ReferencePlane);
   });
 
   // Arrow key timeline scrubbing
@@ -409,6 +555,12 @@ export function createOverlay(
   const settingsPanel = overlay.querySelector('#settings-panel') as HTMLDivElement;
   settingsToggle.addEventListener('click', () => {
     settingsPanel.classList.toggle('open');
+  });
+
+  overlay.querySelector('#reset-state')!.addEventListener('click', () => {
+    localStorage.removeItem('artemis-camera-v1');
+    localStorage.removeItem('artemis-settings-v1');
+    window.location.reload();
   });
 
   const SETTINGS_KEY = 'artemis-settings-v1';
@@ -476,13 +628,6 @@ export function createOverlay(
     onMoonOrbitalPlaneToggle(moonOrbitalPlaneToggle.checked);
   });
 
-  const gridFadeToggle = overlay.querySelector('#grid-fade-toggle') as HTMLInputElement;
-  gridFadeToggle.checked = savedSettings.gridFade ?? true;
-  gridFadeToggle.addEventListener('change', () => {
-    saveSetting('gridFade', gridFadeToggle.checked);
-    onGridFadeToggle(gridFadeToggle.checked);
-  });
-
   // Apply persisted settings to scene on load
   if (wireframeToggle.checked) onWireframeToggle(true);
   if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
@@ -492,7 +637,6 @@ export function createOverlay(
   if (!orionToggle.checked) onOrionToggle(false);
   if (icrfPlaneToggle.checked) onIcrfPlaneToggle(true);
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
-  if (!gridFadeToggle.checked) onGridFadeToggle(false);
 
   return { overlay, liveState };
 }

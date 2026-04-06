@@ -62,7 +62,7 @@ const starGeom = new THREE.BufferGeometry();
 starGeom.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
 const starMat = new THREE.PointsMaterial({
   color: 0xffffff,
-  size: 0.8,
+  size: 0.8 * window.devicePixelRatio,
   sizeAttenuation: true,
 });
 const stars = new THREE.Points(starGeom, starMat);
@@ -112,15 +112,15 @@ const moonWireframeMat = new THREE.MeshBasicMaterial({
 }
 
 // --- Reference Planes ---
-const { group: icrfPlane, update: updateIcrfPlane, setFadeEnabled: setIcrfFade } = createIcrfPlane();
+const { group: icrfPlane, update: updateIcrfPlane } = createIcrfPlane();
 icrfPlane.visible = false;
 scene.add(icrfPlane);
 
-const { group: eclipticPlane, update: updateEclipticPlane, setFadeEnabled: setEclipticFade } = createEclipticPlane();
+const { group: eclipticPlane, update: updateEclipticPlane } = createEclipticPlane();
 eclipticPlane.visible = false;
 scene.add(eclipticPlane);
 
-const { group: moonOrbitalPlane, update: updateMoonOrbitalPlane, setFadeEnabled: setMoonOrbitalFade } = createMoonOrbitalPlane();
+const { group: moonOrbitalPlane, update: updateMoonOrbitalPlane } = createMoonOrbitalPlane();
 moonOrbitalPlane.visible = false;
 scene.add(moonOrbitalPlane);
 const moonOrbitLine = scene.getObjectByName('moonOrbit') as THREE.Line;
@@ -172,11 +172,6 @@ const { liveState } = createOverlay(timeline, cameraController, {
   },
   onMoonOrbitalPlaneToggle(enabled) {
     moonOrbitalPlane.visible = enabled;
-  },
-  onGridFadeToggle(enabled) {
-    setIcrfFade(enabled);
-    setEclipticFade(enabled);
-    setMoonOrbitalFade(enabled);
   },
   onReferencePlaneChange(plane: ReferencePlane) {
     cameraController.setReferencePlane(plane);

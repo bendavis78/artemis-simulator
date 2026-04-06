@@ -60,6 +60,9 @@ export class CameraController {
   private readonly ZOOM_SPEED = 0.15;
   private readonly ZOOM_LERP = 0.12;
 
+  // Pinch-to-zoom state
+  private lastPinchDistance: number = 0;
+
   // FOV zoom for POV modes (telescope-style)
   private static readonly DEFAULT_FOV = 60;
   private static readonly POV_INITIAL_FOV = 30;
@@ -89,6 +92,8 @@ export class CameraController {
 
     this.targetDistance = this.camera.position.length();
     canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+    canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+    canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
     this.controls.addEventListener('change', () => this.scheduleSave());
   }
 
@@ -158,6 +163,50 @@ export class CameraController {
         config.maxDistance
       );
     }
+  }
+
+  private getTouchDistance(touches: TouchList): number {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private handleTouchStart(event: TouchEvent): void {
+    if (event.touches.length === 2) {
+      this.lastPinchDistance = this.getTouchDistance(event.touches);
+    }
+  }
+
+  private handleTouchMove(event: TouchEvent): void {
+    if (event.touches.length !== 2) return;
+
+    const currentDistance = this.getTouchDistance(event.touches);
+    if (this.lastPinchDistance === 0) {
+      this.lastPinchDistance = currentDistance;
+      return;
+    }
+
+    const ratio = this.lastPinchDistance / currentDistance;
+    this.lastPinchDistance = currentDistance;
+
+    if (this.cameraMode !== 'free') {
+      // POV modes: telescope-style FOV zoom (pinch out = zoom in = narrower FOV)
+      this.targetFOV = THREE.MathUtils.clamp(
+        this.targetFOV * ratio,
+        CameraController.MIN_FOV,
+        CameraController.MAX_FOV
+      );
+    } else {
+      // Free mode: distance-based zoom
+      const config = FOCUS_CONFIGS[this.focusTarget];
+      this.targetDistance = THREE.MathUtils.clamp(
+        this.targetDistance * ratio,
+        config.minDistance,
+        config.maxDistance
+      );
+    }
+
+    event.preventDefault();
   }
 
   updateBodyPosition(body: FocusTarget, position: THREE.Vector3): void {

@@ -3,6 +3,7 @@
 - [x] Fix reference planes to earth instead of focused body
 - [x] Make grid "infinite" (just extend it to be 2x or 4x bigger)
 - [x] Fix the grid "fade" when plane is different from focused body
+- [ ] Orion path goes through the earth. Is earth position & size correct w/ respect to ephemeris?
 
 # Small features
 
