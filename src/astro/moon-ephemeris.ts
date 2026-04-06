@@ -2,7 +2,7 @@
 // Source: JPL Horizons API, target 301 (Moon)
 // Geocentric ICRF coordinates, 1 unit = 1,000 km
 // Format: [MET (hours), X, Y, Z]
-// Generated: 2026-04-06T05:03:55.681Z
+// Generated: 2026-04-06T21:10:33.774Z
 
 export const MOON_EPHEMERIS: [number, number, number, number][] = [
   [0.0000, -386.581776, -55.559884, -44.511731],

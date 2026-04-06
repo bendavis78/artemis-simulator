@@ -150,7 +150,11 @@ scene.add(flightPath.progressPath);
 const { group: spacecraftGroup, marker: spacecraftMarker } =
   createSpacecraft();
 const orionFill = new THREE.HemisphereLight(0xffffff, 0x000000, 0.3);
+orionFill.layers.set(1);
 spacecraftGroup.add(orionFill);
+spacecraftGroup.traverse((child) => {
+  if ((child as THREE.Mesh).isMesh) child.layers.enable(1);
+});
 scene.add(spacecraftGroup);
 scene.add(spacecraftMarker);
 let orionVisible = true;

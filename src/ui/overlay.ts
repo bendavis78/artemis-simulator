@@ -177,11 +177,13 @@ export function createOverlay(
       .info-row span { white-space: nowrap; }
       .info-value { color: #999; }
       .debug-values {
-        margin-left: auto;
-        display: flex;
-        gap: 16px;
+        display: none;
+        gap: 10px;
+        font-size: 0.7em;
         color: #4a7;
+        pointer-events: none;
       }
+      .debug-values.visible { display: flex; }
       .debug-values .debug-val { color: #6c9; }
 
       .settings-wrap {
@@ -306,7 +308,10 @@ export function createOverlay(
 
     <div class="top-bar">
       <span class="title">ARTEMIS II</span>
-      <span class="phase" id="phase">—</span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;">
+        <span class="phase" id="phase">—</span>
+        <div class="debug-values" id="debug-values"></div>
+      </div>
     </div>
 
     <div class="bottom-panel">
@@ -377,6 +382,7 @@ export function createOverlay(
             <label style="margin-top: 6px;"><input type="checkbox" id="lunar-labels-toggle"> Lunar Labels</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="icrf-plane-toggle"> ICRF Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbital-plane-toggle"> Moon Orbital Plane</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="debug-values-toggle"> Debug Values</label>
             <label style="margin-top: 10px;">
               Ref. Plane
               <select id="ref-plane-select" class="settings-select">
@@ -395,7 +401,6 @@ export function createOverlay(
         <span>Moon: <span class="info-value" id="dist-moon">—</span></span>
         <span>Speed: <span class="info-value" id="velocity">—</span></span>
         <span>Phase: <span class="info-value" id="moon-phase">—</span></span>
-        <div class="debug-values" id="debug-values"></div>
       </div>
     </div>
   `;
@@ -737,6 +742,14 @@ export function createOverlay(
     onMoonOrbitalPlaneToggle(moonOrbitalPlaneToggle.checked);
   });
 
+  const debugValuesToggle = overlay.querySelector('#debug-values-toggle') as HTMLInputElement;
+  const debugValuesContainer = overlay.querySelector('#debug-values') as HTMLDivElement;
+  debugValuesToggle.checked = savedSettings.debugValues ?? false;
+  debugValuesToggle.addEventListener('change', () => {
+    saveSetting('debugValues', debugValuesToggle.checked);
+    debugValuesContainer.classList.toggle('visible', debugValuesToggle.checked);
+  });
+
   // Apply persisted settings to scene on load
   if (wireframeToggle.checked) onWireframeToggle(true);
   if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
@@ -747,6 +760,7 @@ export function createOverlay(
   onLunarLabelsToggle(lunarLabelsToggle.checked);
   if (icrfPlaneToggle.checked) onIcrfPlaneToggle(true);
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
+  debugValuesContainer.classList.toggle('visible', debugValuesToggle.checked);
 
   return { overlay, liveState };
 }

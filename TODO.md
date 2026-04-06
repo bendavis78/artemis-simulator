@@ -5,8 +5,8 @@
 - [x] Fix the grid "fade" when plane is different from focused body
 - [x] Orion path goes through the earth. Is earth position & size correct w/ respect to ephemeris?
 - [x] Auto-hide orion during Orion POV
-- [ ] Lighting weridness on moon
-- [ ] Move debug info up into main view, one var per line, right flush, vert center
+- [x] Lighting weridness on moon
+- [x] Move debug info up into main view, one var per line, right flush, vert center
 - [ ] Remove two finger drag panning on mobile? loses focus obj
 - [ ] Stars too faint on mobile?
 
@@ -24,7 +24,7 @@
 - [x] More compact UI layout, responsive
 - [x] Mobile / touch friendly
 - [x] Accurate model of orion
-- [ ] Label points of interest on the moon (lines & labels)
+- [x] Label points of interest on the moon (lines & labels)
 - [ ] Sun / solar effects (Bonus: solar corona around sunset/sunrise)
 - [ ] Flight path for launch & splashdown (check kerbal simulations?)
 
