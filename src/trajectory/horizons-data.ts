@@ -2,7 +2,7 @@
 // Source: JPL Horizons API, spacecraft -1024 (Artemis II)
 // Geocentric ICRF coordinates, 1 unit = 1,000 km
 // Format: [MET (hours), X, Y, Z, VX, VY, VZ] (velocity in scene units/s)
-// Generated: 2026-04-06T21:10:33.770Z
+// Generated: 2026-04-06T21:22:03.993Z
 
 export const HORIZONS_TRAJECTORY: [number, number, number, number, number, number, number][] = [
   [3.5000, -25.126805, -13.939837, -7.583717, -0.001688460, -0.003336393, -0.001804034],

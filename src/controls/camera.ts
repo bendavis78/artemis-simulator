@@ -313,13 +313,7 @@ export class CameraController {
   setCameraMode(mode: CameraMode): void {
     this.cameraMode = mode;
     if (mode === 'earth-pov' || mode === 'orion-pov') {
-      // Both POV modes: focus on moon, lock controls, start telescope zoom
-      if (this.focusTarget !== 'moon') {
-        const moonPos = this.bodyPositions.moon;
-        this.controls.target.copy(moonPos);
-        this.focusTarget = 'moon';
-        this.lastBodyPos.copy(moonPos);
-      }
+      // POV modes: lock controls, telescope zoom — looks at current focus target
       this.controls.enableRotate = false;
       this.controls.enablePan = false;
       this.targetFOV = CameraController.POV_INITIAL_FOV;
@@ -354,17 +348,19 @@ export class CameraController {
     }
 
     if (this.cameraMode === 'earth-pov') {
-      // Camera at Earth origin, looking at Moon — bypass OrbitControls entirely
+      // Camera at Earth origin, looking at focus target — bypass OrbitControls entirely
+      const target = this.bodyPositions[this.focusTarget];
       this.camera.position.set(0, 0, 0);
-      this.camera.lookAt(this.bodyPositions.moon);
-      this.controls.target.copy(this.bodyPositions.moon);
-      this.lastBodyPos.copy(this.bodyPositions.moon);
+      this.camera.lookAt(target);
+      this.controls.target.copy(target);
+      this.lastBodyPos.copy(target);
     } else if (this.cameraMode === 'orion-pov') {
-      // Camera at Orion, looking at Moon — bypass OrbitControls entirely
+      // Camera at Orion, looking at focus target — bypass OrbitControls entirely
+      const target = this.bodyPositions[this.focusTarget];
       this.camera.position.copy(this.bodyPositions.orion);
-      this.camera.lookAt(this.bodyPositions.moon);
-      this.controls.target.copy(this.bodyPositions.moon);
-      this.lastBodyPos.copy(this.bodyPositions.moon);
+      this.camera.lookAt(target);
+      this.controls.target.copy(target);
+      this.lastBodyPos.copy(target);
     } else {
       // Free mode: move camera + target with the body so orbiting stays centered
       const bodyPos = this.bodyPositions[this.focusTarget];

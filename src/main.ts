@@ -163,7 +163,7 @@ let orionVisible = true;
 const timeline = new Timeline();
 
 // --- UI ---
-const { liveState } = createOverlay(timeline, cameraController, {
+const { liveState, updatePovMenu } = createOverlay(timeline, cameraController, {
   onWireframeToggle(enabled) {
     earthMaterial.wireframe = enabled;
     earthMaterial.uniforms.uWireframe.value = enabled ? 1.0 : 0.0;
@@ -229,6 +229,7 @@ renderer.domElement.addEventListener('dblclick', (event) => {
     document
       .querySelector(`.focus-btn[data-focus="${hit}"]`)
       ?.classList.add('active');
+    updatePovMenu(hit);
   }
 });
 

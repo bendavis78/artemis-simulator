@@ -17,7 +17,7 @@ export function createOverlay(
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
   },
-): { overlay: HTMLDivElement; liveState: { isLive: boolean } } {
+): { overlay: HTMLDivElement; liveState: { isLive: boolean }; updatePovMenu: (focus: FocusTarget) => void } {
   const overlay = document.createElement('div');
   overlay.id = 'overlay';
   overlay.innerHTML = `
@@ -365,11 +365,7 @@ export function createOverlay(
         <div class="separator"></div>
         <div class="dropup" id="pov-dropup" style="display:inline-block;">
           <button class="dropup-trigger" id="pov-dropup-trigger">Free</button>
-          <div class="dropup-menu" id="pov-dropup-menu">
-            <button class="dropup-item mode-btn" data-mode="free">Free</button>
-            <button class="dropup-item mode-btn" data-mode="earth-pov">Earth POV</button>
-            <button class="dropup-item mode-btn" data-mode="orion-pov">Orion POV</button>
-          </div>
+          <div class="dropup-menu" id="pov-dropup-menu"></div>
         </div>
         <div class="settings-wrap">
           <div class="settings-panel" id="settings-panel">
@@ -499,33 +495,67 @@ export function createOverlay(
     });
   });
 
+  // POV modes available per focus target
+  const POV_MODES: Record<FocusTarget, { mode: CameraMode; label: string }[]> = {
+    earth: [
+      { mode: 'free', label: 'Free' },
+      { mode: 'orion-pov', label: 'Orion POV' },
+    ],
+    moon: [
+      { mode: 'free', label: 'Free' },
+      { mode: 'earth-pov', label: 'Earth POV' },
+      { mode: 'orion-pov', label: 'Orion POV' },
+    ],
+    orion: [
+      { mode: 'free', label: 'Free' },
+    ],
+  };
+
+  const povDropup = overlay.querySelector('#pov-dropup') as HTMLDivElement;
+
+  function updatePovMenu(focus: FocusTarget): void {
+    const modes = POV_MODES[focus];
+    // Hide dropdown when only Free is available
+    povDropup.style.display = modes.length <= 1 ? 'none' : 'inline-block';
+    // Rebuild menu items
+    povDropupMenu.innerHTML = modes
+      .map((m) => `<button class="dropup-item mode-btn" data-mode="${m.mode}">${m.label}</button>`)
+      .join('');
+    // If current camera mode isn't available for this focus, reset to free
+    if (!modes.some((m) => m.mode === cameraController.cameraMode)) {
+      cameraController.setCameraMode('free');
+    }
+    // Sync active state and trigger label
+    povDropupMenu.querySelectorAll('.mode-btn').forEach((b) => {
+      b.classList.toggle('active', (b as HTMLElement).dataset.mode === cameraController.cameraMode);
+    });
+    povDropupTrigger.textContent = modeLabel[cameraController.cameraMode];
+    // Wire click handlers on new buttons
+    povDropupMenu.querySelectorAll('.mode-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = (btn as HTMLElement).dataset.mode as CameraMode;
+        cameraController.setCameraMode(mode);
+        povDropupMenu.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        povDropupTrigger.textContent = modeLabel[mode];
+        povDropupMenu.classList.remove('open');
+      });
+    });
+  }
+
+  // Initialize POV menu for current focus
+  updatePovMenu(cameraController.focusTarget);
+
   overlay.querySelectorAll('.focus-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const focus = (btn as HTMLElement).dataset.focus as FocusTarget;
       cameraController.setFocus(focus);
       // setFocus exits POV mode, so sync everything
       overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-      overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
       overlay.querySelectorAll(`.focus-btn[data-focus="${focus}"]`).forEach((b) => b.classList.add('active'));
-      overlay.querySelectorAll('.mode-btn[data-mode="free"]').forEach((b) => b.classList.add('active'));
       focusDropupTrigger.textContent = focusLabel[focus];
-      povDropupTrigger.textContent = modeLabel.free;
       focusDropupMenu.classList.remove('open');
-    });
-  });
-
-  overlay.querySelectorAll('.mode-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const mode = (btn as HTMLElement).dataset.mode as CameraMode;
-      cameraController.setCameraMode(mode);
-      overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-      overlay.querySelectorAll(`.mode-btn[data-mode="${mode}"]`).forEach((b) => b.classList.add('active'));
-      // Sync focus buttons with whatever focus target the mode set
-      overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-      overlay.querySelectorAll(`.focus-btn[data-focus="${cameraController.focusTarget}"]`).forEach((b) => b.classList.add('active'));
-      focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
-      povDropupTrigger.textContent = modeLabel[mode];
-      povDropupMenu.classList.remove('open');
+      updatePovMenu(focus);
     });
   });
 
@@ -557,20 +587,15 @@ export function createOverlay(
   function setFocusAndSync(focus: FocusTarget): void {
     cameraController.setFocus(focus);
     overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
     overlay.querySelectorAll(`.focus-btn[data-focus="${focus}"]`).forEach((b) => b.classList.add('active'));
-    overlay.querySelectorAll('.mode-btn[data-mode="free"]').forEach((b) => b.classList.add('active'));
     focusDropupTrigger.textContent = focusLabel[focus];
-    povDropupTrigger.textContent = modeLabel.free;
+    updatePovMenu(focus);
   }
 
   function setModeAndSync(mode: CameraMode): void {
     cameraController.setCameraMode(mode);
-    overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelectorAll(`.mode-btn[data-mode="${mode}"]`).forEach((b) => b.classList.add('active'));
-    overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelectorAll(`.focus-btn[data-focus="${cameraController.focusTarget}"]`).forEach((b) => b.classList.add('active'));
-    focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
+    povDropupMenu.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+    povDropupMenu.querySelectorAll(`.mode-btn[data-mode="${mode}"]`).forEach((b) => b.classList.add('active'));
     povDropupTrigger.textContent = modeLabel[mode];
   }
 
@@ -623,17 +648,23 @@ export function createOverlay(
       return;
     }
 
-    // Shift+E: toggle Earth POV
+    // Shift+E: toggle Earth POV (only when moon focused)
     if (e.key === 'E' && e.shiftKey) {
-      const mode = cameraController.cameraMode === 'earth-pov' ? 'free' : 'earth-pov';
-      setModeAndSync(mode);
+      const modes = POV_MODES[cameraController.focusTarget];
+      if (modes.some((m) => m.mode === 'earth-pov')) {
+        const mode = cameraController.cameraMode === 'earth-pov' ? 'free' : 'earth-pov';
+        setModeAndSync(mode);
+      }
       return;
     }
 
-    // Shift+O: toggle Orion POV (auto-switches focus to orion)
+    // Shift+O: toggle Orion POV (when moon or earth focused)
     if (e.key === 'O' && e.shiftKey) {
-      const mode = cameraController.cameraMode === 'orion-pov' ? 'free' : 'orion-pov';
-      setModeAndSync(mode);
+      const modes = POV_MODES[cameraController.focusTarget];
+      if (modes.some((m) => m.mode === 'orion-pov')) {
+        const mode = cameraController.cameraMode === 'orion-pov' ? 'free' : 'orion-pov';
+        setModeAndSync(mode);
+      }
       return;
     }
 
@@ -762,7 +793,7 @@ export function createOverlay(
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
   debugValuesContainer.classList.toggle('visible', debugValuesToggle.checked);
 
-  return { overlay, liveState };
+  return { overlay, liveState, updatePovMenu };
 }
 
 export function updateOverlay(
