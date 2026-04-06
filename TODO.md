@@ -10,7 +10,7 @@
 - [x] Smooth zoom
 - [x] Orion glow fading
 - [x] Arrow keys can control timeline, jump to intervals based on speed selection. If speed is 1x, jump to 15-minute intervals
-- [ ] Ensure earth & moon textures are geographically accurate (see [reference site][1])
+- [x] Ensure earth & moon textures are geographically accurate (see [reference site][1])
 
 # Bigger features
 

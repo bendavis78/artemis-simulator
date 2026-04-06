@@ -1,5 +1,5 @@
 import type { Timeline, PlaybackSpeed } from '../controls/timeline';
-import type { CameraController, FocusTarget, ReferencePlane } from '../controls/camera';
+import type { CameraController, FocusTarget, ReferencePlane, CameraMode } from '../controls/camera';
 import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
 
 export function createOverlay(
@@ -241,6 +241,7 @@ export function createOverlay(
         <div class="separator"></div>
         <button class="btn focus-btn" data-focus="earth">Earth</button>
         <button class="btn focus-btn" data-focus="moon">Moon</button>
+        <button class="btn mode-btn" data-mode="moon-near-side">Near Side</button>
         <button class="btn focus-btn" data-focus="orion">Orion</button>
         <div class="separator"></div>
         <button class="btn plane-btn" data-plane="icrf">ICRF</button>
@@ -265,6 +266,7 @@ export function createOverlay(
         <span>Earth: <span class="info-value" id="dist-earth">—</span></span>
         <span>Moon: <span class="info-value" id="dist-moon">—</span></span>
         <span>Speed: <span class="info-value" id="velocity">—</span></span>
+        <span>Phase: <span class="info-value" id="moon-phase">—</span></span>
       </div>
     </div>
   `;
@@ -274,6 +276,9 @@ export function createOverlay(
   // Reflect restored camera state in buttons
   overlay.querySelector(`.focus-btn[data-focus="${cameraController.focusTarget}"]`)?.classList.add('active');
   overlay.querySelector(`.plane-btn[data-plane="${cameraController.referencePlane}"]`)?.classList.add('active');
+  if (cameraController.cameraMode !== 'free') {
+    overlay.querySelector(`.mode-btn[data-mode="${cameraController.cameraMode}"]`)?.classList.add('active');
+  }
 
   const liveState = { isLive: false };
 
@@ -320,7 +325,28 @@ export function createOverlay(
       const focus = (btn as HTMLElement).dataset.focus as FocusTarget;
       cameraController.setFocus(focus);
       overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+      overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
+    });
+  });
+
+  overlay.querySelectorAll('.mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = (btn as HTMLElement).dataset.mode as CameraMode;
+      const isActive = btn.classList.contains('active');
+      if (isActive) {
+        // Toggle off: return to free mode focused on moon
+        cameraController.setCameraMode('free');
+        overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+        overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+        overlay.querySelector('.focus-btn[data-focus="moon"]')?.classList.add('active');
+      } else {
+        cameraController.setCameraMode(mode);
+        overlay.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+        overlay.querySelectorAll('.focus-btn').forEach((b) => b.classList.remove('active'));
+        overlay.querySelector('.focus-btn[data-focus="moon"]')?.classList.add('active');
+        btn.classList.add('active');
+      }
     });
   });
 
@@ -455,10 +481,12 @@ export function updateOverlay(
     distEarth,
     distMoon,
     speed,
+    phaseAngle,
   }: {
     distEarth: number;
     distMoon: number;
     speed: number;
+    phaseAngle: number;
   }
 ): void {
   if (liveState.isLive) {
@@ -502,6 +530,7 @@ export function updateOverlay(
     distMoon * 1000
   );
   document.getElementById('velocity')!.textContent = formatSpeed(speed);
+  document.getElementById('moon-phase')!.textContent = `${getMoonPhaseName(phaseAngle)} (${Math.round(phaseAngle)}°)`;
 }
 
 function formatDistance(km: number): string {
@@ -512,4 +541,14 @@ function formatDistance(km: number): string {
 function formatSpeed(kmPerHour: number): string {
   if (kmPerHour < 1000) return `${Math.round(kmPerHour)} km/h`;
   return `${(kmPerHour / 1000).toFixed(1)}K km/h`;
+}
+
+function getMoonPhaseName(phaseAngle: number): string {
+  // Phase angle: 0° = New Moon (Sun & Moon same direction from Earth)
+  //            180° = Full Moon (Sun & Moon opposite sides)
+  if (phaseAngle < 10) return 'New';
+  if (phaseAngle < 80) return 'Crescent';
+  if (phaseAngle < 100) return 'Quarter';
+  if (phaseAngle < 170) return 'Gibbous';
+  return 'Full';
 }

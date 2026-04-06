@@ -3,7 +3,7 @@ export const SCALE = 1 / 1000; // km -> scene units
 
 export const EARTH_RADIUS = 6.371; // scene units (6,371 km)
 export const MOON_RADIUS = 1.7374; // scene units (1,737.4 km)
-export const MOON_TEXTURE_OFFSET = 0.14; // UV offset (0–1) for surface texture rotation
+export const MOON_TEXTURE_OFFSET = 0.26; // UV offset (0–1) for surface texture rotation
 export const EARTH_MOON_MEAN_DIST = 384.4; // scene units (384,400 km)
 
 // Earth's axial tilt (obliquity of ecliptic) in radians

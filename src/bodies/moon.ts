@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { MOON_RADIUS, MOON_TEXTURE_OFFSET, TEXTURES } from '../constants';
 
-export function createMoon(loadingManager: THREE.LoadingManager): THREE.Mesh {
+export function createMoon(loadingManager: THREE.LoadingManager): {
+  mesh: THREE.Mesh;
+  colorTexture: THREE.Texture;
+} {
   const textureLoader = new THREE.TextureLoader(loadingManager);
 
   const colorTex = textureLoader.load(TEXTURES.moonColor);
   colorTex.colorSpace = THREE.SRGBColorSpace;
   colorTex.offset.set(MOON_TEXTURE_OFFSET, 0);
+  colorTex.wrapS = THREE.RepeatWrapping;
 
   const material = new THREE.MeshStandardMaterial({
     map: colorTex,
@@ -18,5 +22,5 @@ export function createMoon(loadingManager: THREE.LoadingManager): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'moon';
 
-  return mesh;
+  return { mesh, colorTexture: colorTex };
 }

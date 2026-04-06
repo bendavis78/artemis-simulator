@@ -84,7 +84,7 @@ const { mesh: earthMesh, material: earthMaterial } =
 scene.add(earthMesh);
 
 // --- Moon ---
-const moonMesh = createMoon(loadingManager);
+const { mesh: moonMesh } = createMoon(loadingManager);
 scene.add(moonMesh);
 
 // Low-res geometries for wireframe mode
@@ -295,7 +295,10 @@ function animate() {
   const distEarth = scPos.length() - EARTH_RADIUS;
   const distMoon = scPos.distanceTo(moonPos) - 1.7374;
   const speed = interpolator.getSpeed(met);
-  updateOverlay(timeline, liveState, { distEarth, distMoon, speed });
+  // Phase angle: angle between Sun and Moon as seen from Earth (at origin)
+  const moonDir = moonPos.clone().normalize();
+  const phaseAngle = THREE.MathUtils.radToDeg(sunDir.angleTo(moonDir));
+  updateOverlay(timeline, liveState, { distEarth, distMoon, speed, phaseAngle });
 
   // Debug
   if (DEBUG_CAMERA) {

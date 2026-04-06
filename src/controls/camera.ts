@@ -5,12 +5,14 @@ import { getIcrfNormal, getEclipticNormal, getMoonOrbitalNormal } from '../astro
 
 export type FocusTarget = 'earth' | 'moon' | 'orion';
 export type ReferencePlane = 'icrf' | 'ecliptic' | 'lunar';
+export type CameraMode = 'free' | 'moon-near-side';
 
 const CAMERA_STORAGE_KEY = 'artemis-camera-v1';
 
 interface CameraState {
   focusTarget: FocusTarget;
   referencePlane: ReferencePlane;
+  cameraMode: CameraMode;
   offsetX: number;
   offsetY: number;
   offsetZ: number;
@@ -40,6 +42,7 @@ export class CameraController {
   controls: OrbitControls;
   focusTarget: FocusTarget = 'earth';
   referencePlane: ReferencePlane = 'icrf';
+  cameraMode: CameraMode = 'free';
 
   // Current positions of focusable bodies
   private bodyPositions: Record<FocusTarget, THREE.Vector3> = {
@@ -91,6 +94,7 @@ export class CameraController {
     const state: CameraState = {
       focusTarget: this.focusTarget,
       referencePlane: this.referencePlane,
+      cameraMode: this.cameraMode,
       offsetX: offset.x,
       offsetY: offset.y,
       offsetZ: offset.z,
@@ -110,7 +114,12 @@ export class CameraController {
     }
     this.focusTarget = state.focusTarget;
     this.referencePlane = state.referencePlane;
+    this.cameraMode = state.cameraMode ?? 'free';
     this.camera.up.copy(PLANE_NORMALS[state.referencePlane]());
+    if (this.cameraMode === 'moon-near-side') {
+      this.controls.enableRotate = false;
+      this.controls.enablePan = false;
+    }
     this.pendingRestore = state;
   }
 
@@ -131,6 +140,11 @@ export class CameraController {
   }
 
   setFocus(target: FocusTarget): void {
+    // Changing focus target always exits near-side lock
+    if (this.cameraMode === 'moon-near-side') {
+      this.setCameraMode('free');
+    }
+
     if (target === this.focusTarget) return;
 
     const config = FOCUS_CONFIGS[target];
@@ -148,6 +162,29 @@ export class CameraController {
     this.controls.minDistance = config.minDistance;
     this.controls.maxDistance = config.maxDistance;
     this.targetDistance = config.defaultDistance;
+    this.saveState();
+  }
+
+  setCameraMode(mode: CameraMode): void {
+    this.cameraMode = mode;
+    if (mode === 'moon-near-side') {
+      // Focus on moon and lock rotation
+      if (this.focusTarget !== 'moon') {
+        const config = FOCUS_CONFIGS.moon;
+        const moonPos = this.bodyPositions.moon;
+        this.controls.target.copy(moonPos);
+        this.focusTarget = 'moon';
+        this.lastBodyPos.copy(moonPos);
+        this.controls.minDistance = config.minDistance;
+        this.controls.maxDistance = config.maxDistance;
+        this.targetDistance = config.defaultDistance;
+      }
+      this.controls.enableRotate = false;
+      this.controls.enablePan = false;
+    } else {
+      this.controls.enableRotate = true;
+      this.controls.enablePan = true;
+    }
     this.saveState();
   }
 
@@ -183,6 +220,16 @@ export class CameraController {
     }
 
     this.controls.update();
+
+    // Moon near-side lock: force camera onto Earth-Moon line (Earth-facing side)
+    if (this.cameraMode === 'moon-near-side') {
+      const moonPos = this.bodyPositions.moon;
+      // Earth is at origin; direction from moon toward earth
+      const moonToEarth = moonPos.clone().negate().normalize();
+      const currentDistance = this.camera.position.distanceTo(moonPos);
+      this.controls.target.copy(moonPos);
+      this.camera.position.copy(moonPos).addScaledVector(moonToEarth, currentDistance);
+    }
 
     // Smooth zoom: lerp current distance toward targetDistance
     const currentDistance = this.camera.position.distanceTo(this.controls.target);
