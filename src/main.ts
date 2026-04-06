@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createEarth, getGreenwichSiderealAngle } from './bodies/earth';
 import { createMoon } from './bodies/moon';
-import { createSunLight } from './bodies/sun';
+import { createSunLight, createSunMesh } from './bodies/sun';
 import { createSpacecraft } from './bodies/spacecraft';
 import { getSunDirection } from './astro/sun-position';
 import { getMoonPosition, getMoonOrbitPoints } from './astro/moon-position';
@@ -79,6 +79,11 @@ const { directional: sunLight, ambient, fill } = createSunLight();
 scene.add(sunLight);
 scene.add(ambient);
 scene.add(fill);
+
+// --- Sun Mesh ---
+const { mesh: sunMesh, update: updateSunMesh } = createSunMesh();
+scene.add(sunMesh);
+let sunMeshVisible = true;
 
 // --- Earth ---
 const { mesh: earthMesh, material: earthMaterial } =
@@ -187,6 +192,9 @@ const { liveState, updatePovMenu } = createOverlay(timeline, cameraController, {
   onOrionToggle(enabled) {
     orionVisible = enabled;
   },
+  onSunToggle(enabled) {
+    sunMeshVisible = enabled;
+  },
   onLunarLabelsToggle(enabled) {
     lunarOverlayMesh.visible = enabled;
   },
@@ -255,6 +263,12 @@ function animate() {
   const sunDir = getSunDirection(simDate);
   sunLight.position.copy(sunDir.clone().multiplyScalar(1000));
   earthMaterial.uniforms.sunDirection.value.copy(sunDir);
+
+  // Update sun billboard
+  sunMesh.visible = sunMeshVisible;
+  if (sunMeshVisible) {
+    updateSunMesh(sunDir, camera);
+  }
 
   // Update log depth buffer uniform
   earthMaterial.uniforms.logDepthBufFC.value =

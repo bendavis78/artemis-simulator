@@ -10,10 +10,11 @@ let scrubController: TimelineScrubController | null = null;
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onLunarLabelsToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onSunToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onLunarLabelsToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
+    onSunToggle: (enabled: boolean) => void;
     onFlightPathToggle: (enabled: boolean) => void;
     onProgressPathToggle: (enabled: boolean) => void;
     onOrionToggle: (enabled: boolean) => void;
@@ -441,6 +442,7 @@ export function createOverlay(
             <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbit-toggle"> Moon Orbit</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="stars-toggle" checked> Stars</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="sun-toggle" checked> Sun</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="flight-path-toggle" checked> Flight Path</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="progress-path-toggle" checked> Progress Path</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="orion-toggle" checked> Orion</label>
@@ -907,6 +909,13 @@ export function createOverlay(
     onStarsToggle(starsToggle.checked);
   });
 
+  const sunToggle = overlay.querySelector('#sun-toggle') as HTMLInputElement;
+  sunToggle.checked = savedSettings.sun ?? true;
+  sunToggle.addEventListener('change', () => {
+    saveSetting('sun', sunToggle.checked);
+    onSunToggle(sunToggle.checked);
+  });
+
   const flightPathToggle = overlay.querySelector('#flight-path-toggle') as HTMLInputElement;
   flightPathToggle.checked = savedSettings.flightPath ?? true;
   flightPathToggle.addEventListener('change', () => {
@@ -961,6 +970,7 @@ export function createOverlay(
   if (wireframeToggle.checked) onWireframeToggle(true);
   if (moonOrbitToggle.checked) onMoonOrbitToggle(true);
   if (!starsToggle.checked) onStarsToggle(false);
+  if (!sunToggle.checked) onSunToggle(false);
   if (!flightPathToggle.checked) onFlightPathToggle(false);
   if (!progressPathToggle.checked) onProgressPathToggle(false);
   if (!orionToggle.checked) onOrionToggle(false);

@@ -114,6 +114,7 @@ export function createEarth(loadingManager: THREE.LoadingManager): {
     vertexShader,
     fragmentShader,
     transparent: true,
+    depthWrite: true,
     defines: {
       USE_LOGDEPTHBUF: '',
     },
