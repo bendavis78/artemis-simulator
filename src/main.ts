@@ -268,7 +268,7 @@ function animate() {
   const markerFadeEnd = 5;   // distance at which marker is fully transparent
   const markerFadeStart = 25; // distance at which marker is fully opaque
   const markerOpacity = orionVisible ? THREE.MathUtils.clamp((camDist - markerFadeEnd) / (markerFadeStart - markerFadeEnd), 0, 1) : 0;
-  spacecraftMarker.visible = markerOpacity > 0;
+  spacecraftMarker.visible = markerOpacity > 0 && !spacecraftGroup.visible;
   (spacecraftMarker.material as THREE.SpriteMaterial).opacity = markerOpacity;
   // Scale marker based on distance
   const markerScale = Math.max(0.5, Math.min(camDist * 0.02, 3));
