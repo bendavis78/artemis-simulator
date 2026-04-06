@@ -11,7 +11,7 @@ import { TrajectoryInterpolator } from './trajectory/interpolate';
 import { createFlightPath } from './trajectory/path';
 import { CameraController, type ReferencePlane } from './controls/camera';
 import { Timeline } from './controls/timeline';
-import { createOverlay, updateOverlay } from './ui/overlay';
+import { createOverlay, updateOverlay, setDebugValues } from './ui/overlay';
 import { EARTH_RADIUS, MOON_RADIUS } from './constants';
 
 // --- Debug ---
@@ -299,6 +299,10 @@ function animate() {
   const moonDir = moonPos.clone().normalize();
   const phaseAngle = THREE.MathUtils.radToDeg(sunDir.angleTo(moonDir));
   updateOverlay(timeline, liveState, { distEarth, distMoon, speed, phaseAngle });
+  const debugZoom = cameraController.cameraMode !== 'free'
+    ? `FOV ${camera.fov.toFixed(1)}°`
+    : camera.position.distanceTo(cameraController.controls.target).toFixed(1);
+  setDebugValues({ zoom: debugZoom });
 
   // Debug
   if (DEBUG_CAMERA) {

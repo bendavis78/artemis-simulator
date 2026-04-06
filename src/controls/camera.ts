@@ -17,6 +17,7 @@ interface CameraState {
   offsetY: number;
   offsetZ: number;
   targetDistance: number;
+  targetFOV?: number;
 }
 
 interface FocusConfig {
@@ -59,6 +60,13 @@ export class CameraController {
   private readonly ZOOM_SPEED = 0.15;
   private readonly ZOOM_LERP = 0.12;
 
+  // FOV zoom for POV modes (telescope-style)
+  private static readonly DEFAULT_FOV = 60;
+  private static readonly POV_INITIAL_FOV = 30;
+  private static readonly MIN_FOV = 2;
+  private static readonly MAX_FOV = 90;
+  private targetFOV: number = CameraController.DEFAULT_FOV;
+
   // Deferred restore applied on first update() after body positions are set
   private pendingRestore: CameraState | null = null;
   private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -99,6 +107,7 @@ export class CameraController {
       offsetY: offset.y,
       offsetZ: offset.z,
       targetDistance: this.targetDistance,
+      targetFOV: this.targetFOV,
     };
     localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(state));
   }
@@ -121,6 +130,9 @@ export class CameraController {
     if (this.cameraMode !== 'free') {
       this.controls.enableRotate = false;
       this.controls.enablePan = false;
+      this.targetFOV = state.targetFOV ?? CameraController.POV_INITIAL_FOV;
+      this.camera.fov = this.targetFOV;
+      this.camera.updateProjectionMatrix();
     }
     this.pendingRestore = state;
   }
@@ -129,12 +141,23 @@ export class CameraController {
     event.preventDefault();
     const delta = event.deltaY > 0 ? 1 : -1;
     const factor = Math.pow(1 + this.ZOOM_SPEED, delta);
-    const config = FOCUS_CONFIGS[this.focusTarget];
-    this.targetDistance = THREE.MathUtils.clamp(
-      this.targetDistance * factor,
-      config.minDistance,
-      config.maxDistance
-    );
+
+    if (this.cameraMode !== 'free') {
+      // POV modes: telescope-style FOV zoom (scroll down = zoom in = narrower FOV)
+      this.targetFOV = THREE.MathUtils.clamp(
+        this.targetFOV * factor,
+        CameraController.MIN_FOV,
+        CameraController.MAX_FOV
+      );
+    } else {
+      // Free mode: distance-based zoom
+      const config = FOCUS_CONFIGS[this.focusTarget];
+      this.targetDistance = THREE.MathUtils.clamp(
+        this.targetDistance * factor,
+        config.minDistance,
+        config.maxDistance
+      );
+    }
   }
 
   updateBodyPosition(body: FocusTarget, position: THREE.Vector3): void {
@@ -169,35 +192,20 @@ export class CameraController {
 
   setCameraMode(mode: CameraMode): void {
     this.cameraMode = mode;
-    if (mode === 'earth-pov') {
-      // Focus on moon and lock rotation (view from Earth's perspective)
+    if (mode === 'earth-pov' || mode === 'orion-pov') {
+      // Both POV modes: focus on moon, lock controls, start telescope zoom
       if (this.focusTarget !== 'moon') {
-        const config = FOCUS_CONFIGS.moon;
         const moonPos = this.bodyPositions.moon;
         this.controls.target.copy(moonPos);
         this.focusTarget = 'moon';
         this.lastBodyPos.copy(moonPos);
-        this.controls.minDistance = config.minDistance;
-        this.controls.maxDistance = config.maxDistance;
-        this.targetDistance = config.defaultDistance;
       }
       this.controls.enableRotate = false;
       this.controls.enablePan = false;
-    } else if (mode === 'orion-pov') {
-      // Focus on moon, viewed from Orion's position
-      if (this.focusTarget !== 'moon') {
-        const config = FOCUS_CONFIGS.moon;
-        const moonPos = this.bodyPositions.moon;
-        this.controls.target.copy(moonPos);
-        this.focusTarget = 'moon';
-        this.lastBodyPos.copy(moonPos);
-        this.controls.minDistance = config.minDistance;
-        this.controls.maxDistance = config.maxDistance;
-        this.targetDistance = config.defaultDistance;
-      }
-      this.controls.enableRotate = false;
-      this.controls.enablePan = false;
+      this.targetFOV = CameraController.POV_INITIAL_FOV;
     } else {
+      // Restore default FOV when leaving POV mode
+      this.targetFOV = CameraController.DEFAULT_FOV;
       this.controls.enableRotate = true;
       this.controls.enablePan = true;
     }
@@ -225,45 +233,51 @@ export class CameraController {
       this.controls.maxDistance = FOCUS_CONFIGS[state.focusTarget].maxDistance;
     }
 
-    // Move camera + target with the body so orbiting stays centered
-    const bodyPos = this.bodyPositions[this.focusTarget];
-    const delta = bodyPos.clone().sub(this.lastBodyPos);
-
-    if (delta.lengthSq() > 0) {
-      this.controls.target.add(delta);
-      this.camera.position.add(delta);
-      this.lastBodyPos.copy(bodyPos);
-    }
-
-    this.controls.update();
-
-    // Earth POV: force camera onto Earth-Moon line (Earth-facing side)
     if (this.cameraMode === 'earth-pov') {
-      const moonPos = this.bodyPositions.moon;
-      // Earth is at origin; direction from moon toward earth
-      const moonToEarth = moonPos.clone().negate().normalize();
-      const currentDistance = this.camera.position.distanceTo(moonPos);
-      this.controls.target.copy(moonPos);
-      this.camera.position.copy(moonPos).addScaledVector(moonToEarth, currentDistance);
+      // Camera at Earth origin, looking at Moon — bypass OrbitControls entirely
+      this.camera.position.set(0, 0, 0);
+      this.camera.lookAt(this.bodyPositions.moon);
+      this.controls.target.copy(this.bodyPositions.moon);
+      this.lastBodyPos.copy(this.bodyPositions.moon);
+    } else if (this.cameraMode === 'orion-pov') {
+      // Camera at Orion, looking at Moon — bypass OrbitControls entirely
+      this.camera.position.copy(this.bodyPositions.orion);
+      this.camera.lookAt(this.bodyPositions.moon);
+      this.controls.target.copy(this.bodyPositions.moon);
+      this.lastBodyPos.copy(this.bodyPositions.moon);
+    } else {
+      // Free mode: move camera + target with the body so orbiting stays centered
+      const bodyPos = this.bodyPositions[this.focusTarget];
+      const delta = bodyPos.clone().sub(this.lastBodyPos);
+
+      if (delta.lengthSq() > 0) {
+        this.controls.target.add(delta);
+        this.camera.position.add(delta);
+        this.lastBodyPos.copy(bodyPos);
+      }
+
+      this.controls.update();
+
+      // Smooth distance zoom
+      const currentDistance = this.camera.position.distanceTo(this.controls.target);
+      if (Math.abs(currentDistance - this.targetDistance) > 1e-6) {
+        const newDistance = THREE.MathUtils.lerp(currentDistance, this.targetDistance, this.ZOOM_LERP);
+        const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+        this.camera.position.copy(this.controls.target).addScaledVector(dir, newDistance);
+      }
+      // Restore default FOV if it drifted (e.g. after exiting POV mode)
+      if (Math.abs(this.camera.fov - CameraController.DEFAULT_FOV) > 0.01) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, CameraController.DEFAULT_FOV, this.ZOOM_LERP);
+        this.camera.updateProjectionMatrix();
+      }
     }
 
-    // Orion POV: camera on Orion-Moon line (Moon as seen from Orion)
-    if (this.cameraMode === 'orion-pov') {
-      const moonPos = this.bodyPositions.moon;
-      const orionPos = this.bodyPositions.orion;
-      // Direction from moon toward orion
-      const moonToOrion = orionPos.clone().sub(moonPos).normalize();
-      const currentDistance = this.camera.position.distanceTo(moonPos);
-      this.controls.target.copy(moonPos);
-      this.camera.position.copy(moonPos).addScaledVector(moonToOrion, currentDistance);
-    }
-
-    // Smooth zoom: lerp current distance toward targetDistance
-    const currentDistance = this.camera.position.distanceTo(this.controls.target);
-    if (Math.abs(currentDistance - this.targetDistance) > 1e-6) {
-      const newDistance = THREE.MathUtils.lerp(currentDistance, this.targetDistance, this.ZOOM_LERP);
-      const dir = this.camera.position.clone().sub(this.controls.target).normalize();
-      this.camera.position.copy(this.controls.target).addScaledVector(dir, newDistance);
+    // POV modes: smooth FOV lerp (telescope zoom)
+    if (this.cameraMode !== 'free') {
+      if (Math.abs(this.camera.fov - this.targetFOV) > 0.01) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, this.targetFOV, this.ZOOM_LERP);
+        this.camera.updateProjectionMatrix();
+      }
     }
   }
 

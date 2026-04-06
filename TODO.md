@@ -14,6 +14,8 @@
 
 # Bigger features
 
+- [ ] More compact UI layout, responsive
+- [ ] Mobile / touch friendly
 - [ ] Accurate model of orion
 - [ ] Flight path for launch & splashdown (check kerbal simulations?)
 

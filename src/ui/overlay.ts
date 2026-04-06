@@ -174,6 +174,13 @@ export function createOverlay(
       }
       .info-row span { white-space: nowrap; }
       .info-value { color: #999; }
+      .debug-values {
+        margin-left: auto;
+        display: flex;
+        gap: 16px;
+        color: #4a7;
+      }
+      .debug-values .debug-val { color: #6c9; }
 
       .settings-wrap {
         position: relative;
@@ -277,6 +284,7 @@ export function createOverlay(
         <span>Moon: <span class="info-value" id="dist-moon">—</span></span>
         <span>Speed: <span class="info-value" id="velocity">—</span></span>
         <span>Phase: <span class="info-value" id="moon-phase">—</span></span>
+        <div class="debug-values" id="debug-values"></div>
       </div>
     </div>
   `;
@@ -566,4 +574,12 @@ function getMoonPhaseName(phaseAngle: number): string {
   if (phaseAngle < 100) return 'Quarter';
   if (phaseAngle < 170) return 'Gibbous';
   return 'Full';
+}
+
+export function setDebugValues(values: Record<string, string | number>): void {
+  const container = document.getElementById('debug-values');
+  if (!container) return;
+  container.innerHTML = Object.entries(values)
+    .map(([k, v]) => `<span>${k}: <span class="debug-val">${v}</span></span>`)
+    .join('');
 }
