@@ -12,6 +12,7 @@ import { createFlightPath } from './trajectory/path';
 import { CameraController, type ReferencePlane } from './controls/camera';
 import { Timeline } from './controls/timeline';
 import { createOverlay, updateOverlay, setDebugValues } from './ui/overlay';
+import { createLunarOverlay } from './bodies/lunar-overlay';
 import { EARTH_RADIUS, MOON_RADIUS } from './constants';
 
 // --- Debug ---
@@ -87,6 +88,8 @@ scene.add(earthMesh);
 // --- Moon ---
 const { mesh: moonMesh } = createMoon(loadingManager);
 scene.add(moonMesh);
+const lunarOverlayMesh = createLunarOverlay();
+moonMesh.add(lunarOverlayMesh);
 
 // Low-res geometries for wireframe mode
 const earthHighResGeom = earthMesh.geometry;
@@ -179,6 +182,9 @@ const { liveState } = createOverlay(timeline, cameraController, {
   },
   onOrionToggle(enabled) {
     orionVisible = enabled;
+  },
+  onLunarLabelsToggle(enabled) {
+    lunarOverlayMesh.visible = enabled;
   },
   onIcrfPlaneToggle(enabled) {
     icrfPlane.visible = enabled;

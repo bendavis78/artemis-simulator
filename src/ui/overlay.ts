@@ -5,13 +5,14 @@ import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
-  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
+  { onWireframeToggle, onMoonOrbitToggle, onStarsToggle, onFlightPathToggle, onProgressPathToggle, onOrionToggle, onLunarLabelsToggle, onIcrfPlaneToggle, onMoonOrbitalPlaneToggle, onReferencePlaneChange }: {
     onWireframeToggle: (enabled: boolean) => void;
     onMoonOrbitToggle: (enabled: boolean) => void;
     onStarsToggle: (enabled: boolean) => void;
     onFlightPathToggle: (enabled: boolean) => void;
     onProgressPathToggle: (enabled: boolean) => void;
     onOrionToggle: (enabled: boolean) => void;
+    onLunarLabelsToggle: (enabled: boolean) => void;
     onIcrfPlaneToggle: (enabled: boolean) => void;
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
@@ -373,6 +374,7 @@ export function createOverlay(
             <label style="margin-top: 6px;"><input type="checkbox" id="flight-path-toggle" checked> Flight Path</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="progress-path-toggle" checked> Progress Path</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="orion-toggle" checked> Orion</label>
+            <label style="margin-top: 6px;"><input type="checkbox" id="lunar-labels-toggle" checked> Lunar Labels</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="icrf-plane-toggle"> ICRF Plane</label>
             <label style="margin-top: 6px;"><input type="checkbox" id="moon-orbital-plane-toggle"> Moon Orbital Plane</label>
             <label style="margin-top: 10px;">
@@ -714,6 +716,13 @@ export function createOverlay(
     onOrionToggle(orionToggle.checked);
   });
 
+  const lunarLabelsToggle = overlay.querySelector('#lunar-labels-toggle') as HTMLInputElement;
+  lunarLabelsToggle.checked = savedSettings.lunarLabels ?? true;
+  lunarLabelsToggle.addEventListener('change', () => {
+    saveSetting('lunarLabels', lunarLabelsToggle.checked);
+    onLunarLabelsToggle(lunarLabelsToggle.checked);
+  });
+
   const icrfPlaneToggle = overlay.querySelector('#icrf-plane-toggle') as HTMLInputElement;
   icrfPlaneToggle.checked = savedSettings.icrfPlane ?? false;
   icrfPlaneToggle.addEventListener('change', () => {
@@ -735,6 +744,7 @@ export function createOverlay(
   if (!flightPathToggle.checked) onFlightPathToggle(false);
   if (!progressPathToggle.checked) onProgressPathToggle(false);
   if (!orionToggle.checked) onOrionToggle(false);
+  if (!lunarLabelsToggle.checked) onLunarLabelsToggle(false);
   if (icrfPlaneToggle.checked) onIcrfPlaneToggle(true);
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
 

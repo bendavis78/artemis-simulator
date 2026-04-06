@@ -4,9 +4,11 @@
 - [x] Make grid "infinite" (just extend it to be 2x or 4x bigger)
 - [x] Fix the grid "fade" when plane is different from focused body
 - [x] Orion path goes through the earth. Is earth position & size correct w/ respect to ephemeris?
-- [ ] Auto-hide orion during Orion POV
-- [ ] Stars too faint on mobile?
+- [x] Auto-hide orion during Orion POV
+- [ ] Lighting weridness on moon
+- [ ] Move debug info up into main view, one var per line, right flush, vert center
 - [ ] Remove two finger drag panning on mobile? loses focus obj
+- [ ] Stars too faint on mobile?
 
 # Small features
 
@@ -15,12 +17,14 @@
 - [x] Orion glow fading
 - [x] Arrow keys can control timeline, jump to intervals based on speed selection. If speed is 1x, jump to 15-minute intervals
 - [x] Ensure earth & moon textures are geographically accurate (see [reference site][1])
+- [ ] Time zone selection in settings
 
 # Bigger features
 
 - [x] More compact UI layout, responsive
 - [x] Mobile / touch friendly
 - [x] Accurate model of orion
+- [ ] Label points of interest on the moon (lines & labels)
 - [ ] Sun / solar effects (Bonus: solar corona around sunset/sunrise)
 - [ ] Flight path for launch & splashdown (check kerbal simulations?)
 
