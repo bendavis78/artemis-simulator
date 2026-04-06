@@ -7,6 +7,7 @@
 - [x] Auto-hide orion during Orion POV
 - [x] Lighting weridness on moon
 - [x] Move debug info up into main view, one var per line, right flush, vert center
+- [x] Put debug values on separate lines
 - [ ] Remove two finger drag panning on mobile? loses focus obj
 - [ ] Stars too faint on mobile?
 
@@ -17,7 +18,8 @@
 - [x] Orion glow fading
 - [x] Arrow keys can control timeline, jump to intervals based on speed selection. If speed is 1x, jump to 15-minute intervals
 - [x] Ensure earth & moon textures are geographically accurate (see [reference site][1])
-- [ ] Time zone selection in settings
+- [x] Time zone selection in settings
+- [x] Keyboard shortcut reference (linked in settings menu)
 
 # Bigger features
 

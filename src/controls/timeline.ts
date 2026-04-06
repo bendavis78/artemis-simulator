@@ -8,15 +8,37 @@ export interface TimelineState {
   isPlaying: boolean;
 }
 
+const TIMELINE_STORAGE_KEY = 'artemis-timeline-v1';
+const VALID_SPEEDS: PlaybackSpeed[] = [1, 10, 100, 1000, 10000];
+
 export class Timeline {
   state: TimelineState;
 
   constructor() {
-    this.state = {
+    const saved = this.loadState();
+    this.state = saved ?? {
       currentMET: 3.4,     // Start at ICPS separation
       playbackSpeed: 10000,
       isPlaying: false,
     };
+  }
+
+  private loadState(): TimelineState | null {
+    const raw = localStorage.getItem(TIMELINE_STORAGE_KEY);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as TimelineState;
+      if (typeof parsed.currentMET !== 'number' || typeof parsed.isPlaying !== 'boolean') return null;
+      if (!VALID_SPEEDS.includes(parsed.playbackSpeed)) return null;
+      parsed.currentMET = Math.max(0, Math.min(parsed.currentMET, MISSION_DURATION_HOURS));
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  saveState(): void {
+    localStorage.setItem(TIMELINE_STORAGE_KEY, JSON.stringify(this.state));
   }
 
   update(deltaSeconds: number): void {

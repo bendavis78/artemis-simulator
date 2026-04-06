@@ -2,6 +2,9 @@ import type { Timeline, PlaybackSpeed } from '../controls/timeline';
 import type { CameraController, FocusTarget, ReferencePlane, CameraMode } from '../controls/camera';
 import { MISSION_DURATION_HOURS, MISSION_START_UTC } from '../constants';
 
+let currentTimezone = 'UTC';
+let currentClockFormat: '24' | '12' = '24';
+
 export function createOverlay(
   timeline: Timeline,
   cameraController: CameraController,
@@ -178,10 +181,12 @@ export function createOverlay(
       .info-value { color: #999; }
       .debug-values {
         display: none;
-        gap: 10px;
+        flex-direction: column;
+        gap: 2px;
         font-size: 0.7em;
         color: #4a7;
         pointer-events: none;
+        text-align: right;
       }
       .debug-values.visible { display: flex; }
       .debug-values .debug-val { color: #6c9; }
@@ -294,6 +299,40 @@ export function createOverlay(
       .dropup-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
       .dropup-item.active { color: #4a9eff; }
 
+      /* Keyboard reference modal */
+      .kb-modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 10000;
+        justify-content: center;
+        align-items: center;
+      }
+      .kb-modal-backdrop.open { display: flex; }
+      .kb-modal {
+        background: #1a1a2e;
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px;
+        padding: 20px 28px;
+        max-width: 420px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 0.8em;
+      }
+      .kb-modal h3 {
+        margin: 0 0 12px;
+        color: #fff;
+        font-size: 1.1em;
+      }
+      .kb-modal table { width: 100%; border-collapse: collapse; }
+      .kb-modal td { padding: 3px 0; }
+      .kb-modal td:first-child { color: #4a9eff; white-space: nowrap; padding-right: 16px; }
+      .kb-modal .kb-section { color: #6c9; margin: 10px 0 4px; font-size: 0.9em; }
+
       /* Desktop: show inline buttons, hide dropups */
       .speed-inline, .focus-inline { display: contents; }
 
@@ -386,7 +425,33 @@ export function createOverlay(
                 <option value="lunar">Lunar</option>
               </select>
             </label>
-            <button class="btn" id="reset-state" style="margin-top: 12px; width: 100%; color: #e05555; border-color: rgba(220,50,50,0.3);">Reset Settings</button>
+            <label style="margin-top: 6px;">
+              Time Zone
+              <select id="timezone-select" class="settings-select">
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">Eastern</option>
+                <option value="America/Chicago">Central</option>
+                <option value="America/Denver">Mountain</option>
+                <option value="America/Los_Angeles">Pacific</option>
+                <option value="America/Anchorage">Alaska</option>
+                <option value="Pacific/Honolulu">Hawaii</option>
+                <option value="Europe/London">London</option>
+                <option value="Europe/Paris">Paris</option>
+                <option value="Europe/Berlin">Berlin</option>
+                <option value="Asia/Tokyo">Tokyo</option>
+                <option value="Australia/Sydney">Sydney</option>
+                <option value="local">Local</option>
+              </select>
+            </label>
+            <label style="margin-top: 6px;">
+              Clock
+              <select id="clock-format-select" class="settings-select">
+                <option value="24">24h</option>
+                <option value="12">12h</option>
+              </select>
+            </label>
+            <button class="btn" id="show-kb-ref" style="margin-top: 12px; width: 100%;">Keyboard Shortcuts</button>
+            <button class="btn" id="reset-state" style="margin-top: 8px; width: 100%; color: #e05555; border-color: rgba(220,50,50,0.3);">Reset Settings</button>
           </div>
           <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
         </div>
@@ -399,6 +464,41 @@ export function createOverlay(
         <span>Phase: <span class="info-value" id="moon-phase">—</span></span>
       </div>
     </div>
+
+    <div class="kb-modal-backdrop" id="kb-modal-backdrop">
+      <div class="kb-modal">
+        <h3>Keyboard Shortcuts</h3>
+        <div class="kb-section">Playback</div>
+        <table>
+          <tr><td>Space</td><td>Play / Pause</td></tr>
+          <tr><td>L</td><td>Toggle live mode</td></tr>
+          <tr><td>&uarr; / &darr;</td><td>Increase / decrease speed</td></tr>
+        </table>
+        <div class="kb-section">Timeline</div>
+        <table>
+          <tr><td>&larr; / &rarr;</td><td>Scrub (step scales with speed)</td></tr>
+          <tr><td>Shift + &larr;/&rarr;</td><td>Scrub in 1-min increments</td></tr>
+        </table>
+        <div class="kb-section">Camera</div>
+        <table>
+          <tr><td>E</td><td>Focus Earth</td></tr>
+          <tr><td>M</td><td>Focus Moon</td></tr>
+          <tr><td>O</td><td>Focus Orion</td></tr>
+          <tr><td>Shift+E</td><td>Toggle Earth POV</td></tr>
+          <tr><td>Shift+O</td><td>Toggle Orion POV</td></tr>
+        </table>
+        <div class="kb-section">Zoom</div>
+        <table>
+          <tr><td>PgUp / PgDn</td><td>Zoom in / out</td></tr>
+          <tr><td>Shift+PgUp/PgDn</td><td>Fine-grain zoom</td></tr>
+          <tr><td>Home / End</td><td>Zoom min / max</td></tr>
+        </table>
+        <div class="kb-section">Other</div>
+        <table>
+          <tr><td>?</td><td>This reference</td></tr>
+        </table>
+      </div>
+    </div>
   `;
 
   document.body.appendChild(overlay);
@@ -407,7 +507,9 @@ export function createOverlay(
   overlay.querySelectorAll(`.focus-btn[data-focus="${cameraController.focusTarget}"]`).forEach((b) => b.classList.add('active'));
   overlay.querySelectorAll(`.mode-btn[data-mode="${cameraController.cameraMode}"]`).forEach((b) => b.classList.add('active'));
 
-  const liveState = { isLive: false };
+  const LIVE_KEY = 'artemis-live-v1';
+  const savedLive = localStorage.getItem(LIVE_KEY) === 'true';
+  const liveState = { isLive: savedLive };
 
   // Wire up events
   const slider = overlay.querySelector('#timeline-slider') as HTMLInputElement;
@@ -566,6 +668,28 @@ export function createOverlay(
     onReferencePlaneChange(refPlaneSelect.value as ReferencePlane);
   });
 
+  // Time zone selection
+  const TIMEZONE_KEY = 'artemis-timezone-v1';
+  const timezoneSelect = overlay.querySelector('#timezone-select') as HTMLSelectElement;
+  const savedTZ = localStorage.getItem(TIMEZONE_KEY);
+  if (savedTZ) timezoneSelect.value = savedTZ;
+  currentTimezone = timezoneSelect.value;
+  timezoneSelect.addEventListener('change', () => {
+    currentTimezone = timezoneSelect.value;
+    localStorage.setItem(TIMEZONE_KEY, timezoneSelect.value);
+  });
+
+  // Clock format selection
+  const CLOCK_FORMAT_KEY = 'artemis-clock-format-v1';
+  const clockFormatSelect = overlay.querySelector('#clock-format-select') as HTMLSelectElement;
+  const savedClock = localStorage.getItem(CLOCK_FORMAT_KEY) as '24' | '12' | null;
+  if (savedClock) clockFormatSelect.value = savedClock;
+  currentClockFormat = clockFormatSelect.value as '24' | '12';
+  clockFormatSelect.addEventListener('change', () => {
+    currentClockFormat = clockFormatSelect.value as '24' | '12';
+    localStorage.setItem(CLOCK_FORMAT_KEY, clockFormatSelect.value);
+  });
+
   // Keyboard shortcuts
   const ARROW_INTERVALS: Record<number, number> = {
     1: 15 / 60,     // 15 minutes
@@ -607,7 +731,8 @@ export function createOverlay(
       e.preventDefault();
       liveState.isLive = false;
       if (timeline.state.isPlaying) timeline.togglePlayPause();
-      const interval = ARROW_INTERVALS[timeline.state.playbackSpeed] ?? 1;
+      const baseInterval = ARROW_INTERVALS[timeline.state.playbackSpeed] ?? 1;
+      const interval = e.shiftKey ? Math.min(baseInterval, 1 / 60) : baseInterval;
       const cur = timeline.state.currentMET;
       const newMET = e.key === 'ArrowRight'
         ? Math.floor(cur / interval + 1e-9) * interval + interval
@@ -669,8 +794,8 @@ export function createOverlay(
     }
 
     // PageUp/PageDown: zoom in/out
-    if (e.key === 'PageUp') { e.preventDefault(); cameraController.zoom(-3); return; }
-    if (e.key === 'PageDown') { e.preventDefault(); cameraController.zoom(3); return; }
+    if (e.key === 'PageUp') { e.preventDefault(); cameraController.zoom(e.shiftKey ? -0.5 : -3); return; }
+    if (e.key === 'PageDown') { e.preventDefault(); cameraController.zoom(e.shiftKey ? 0.5 : 3); return; }
     // Home/End: zoom all the way in/out
     if (e.key === 'Home') { e.preventDefault(); cameraController.zoomToLimit('in'); return; }
     if (e.key === 'End') { e.preventDefault(); cameraController.zoomToLimit('out'); return; }
@@ -681,6 +806,18 @@ export function createOverlay(
     if (e.key === 'm') { setFocusAndSync('moon'); return; }
     // o: focus orion
     if (e.key === 'o') { setFocusAndSync('orion'); return; }
+
+    // ?: keyboard reference
+    if (e.key === '?') { kbModal.classList.toggle('open'); return; }
+  });
+
+  // Keyboard reference modal
+  const kbModal = overlay.querySelector('#kb-modal-backdrop') as HTMLDivElement;
+  kbModal.addEventListener('click', (e) => {
+    if (e.target === kbModal) kbModal.classList.remove('open');
+  });
+  overlay.querySelector('#show-kb-ref')!.addEventListener('click', () => {
+    kbModal.classList.add('open');
   });
 
   // Settings gear
@@ -698,6 +835,10 @@ export function createOverlay(
   overlay.querySelector('#reset-state')!.addEventListener('click', () => {
     localStorage.removeItem('artemis-camera-v1');
     localStorage.removeItem('artemis-settings-v1');
+    localStorage.removeItem('artemis-timeline-v1');
+    localStorage.removeItem('artemis-live-v1');
+    localStorage.removeItem('artemis-timezone-v1');
+    localStorage.removeItem('artemis-clock-format-v1');
     window.location.reload();
   });
 
@@ -793,8 +934,27 @@ export function createOverlay(
   if (moonOrbitalPlaneToggle.checked) onMoonOrbitalPlaneToggle(true);
   debugValuesContainer.classList.toggle('visible', debugValuesToggle.checked);
 
+  // Sync UI to restored timeline state
+  const restoredSpeed = String(timeline.state.playbackSpeed);
+  overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
+  overlay.querySelectorAll(`.speed-btn[data-speed="${restoredSpeed}"]`).forEach((b) => b.classList.add('active'));
+  speedDropupTrigger.textContent = SPEED_LABELS[restoredSpeed] ?? `${restoredSpeed}x`;
+
+  // If live mode was saved, restore it
+  if (liveState.isLive) {
+    const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
+    timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
+    timeline.setSpeed(1);
+    overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
+    overlay.querySelectorAll('.speed-btn[data-speed="1"]').forEach((b) => b.classList.add('active'));
+    speedDropupTrigger.textContent = '1x';
+    if (!timeline.state.isPlaying) timeline.togglePlayPause();
+  }
+
   return { overlay, liveState, updatePovMenu };
 }
+
+let saveCounter = 0;
 
 export function updateOverlay(
   timeline: Timeline,
@@ -811,6 +971,12 @@ export function updateOverlay(
     phaseAngle: number;
   }
 ): void {
+  // Save control state every ~60 frames (~1s at 60fps)
+  if (++saveCounter >= 60) {
+    saveCounter = 0;
+    timeline.saveState();
+    localStorage.setItem('artemis-live-v1', String(liveState.isLive));
+  }
   if (liveState.isLive) {
     const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
     timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
@@ -828,10 +994,25 @@ export function updateOverlay(
   document.getElementById('met')!.textContent = metStr;
 
   const simDate = timeline.getSimDate();
-  document.getElementById('utc')!.textContent = simDate
-    .toISOString()
-    .replace('T', ' ')
-    .slice(0, 19) + ' UTC';
+  const hour12 = currentClockFormat === '12';
+  if (currentTimezone === 'UTC' && !hour12) {
+    document.getElementById('utc')!.textContent = simDate
+      .toISOString()
+      .replace('T', ' ')
+      .slice(0, 19) + ' UTC';
+  } else {
+    const tz = currentTimezone === 'local' ? undefined : currentTimezone;
+    const formatted = simDate.toLocaleString('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12,
+    });
+    const label = currentTimezone === 'local'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop()!
+      : simDate.toLocaleString('en-US', { timeZone: tz, timeZoneName: 'short' }).split(' ').pop()!;
+    document.getElementById('utc')!.textContent = `${formatted} ${label}`;
+  }
 
   document.getElementById('phase')!.textContent = timeline.getMissionPhase();
 

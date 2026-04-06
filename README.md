@@ -40,13 +40,16 @@ npm run preview  # Preview the production build locally
 | `Space` | Play / Pause |
 | `L` | Toggle live mode |
 | `←` / `→` | Scrub timeline (step size scales with speed) |
+| `Shift+←` / `Shift+→` | Scrub timeline in 1-minute increments |
 | `↑` / `↓` | Increase / decrease playback speed |
 | `E` | Focus Earth |
 | `M` | Focus Moon |
 | `O` | Focus Orion |
 | `Page Up` / `Page Down` | Zoom in / out |
+| `Shift+Page Up` / `Shift+Page Down` | Fine-grain zoom in / out |
 | `Home` / `End` | Zoom all the way in / out |
 | `Shift+E` | Toggle Earth POV (view Moon from Earth) |
 | `Shift+O` | Toggle Orion POV (view Moon from Orion) |
+| `?` | Keyboard shortcut reference |
 
 Mouse: drag to orbit, scroll to zoom.
