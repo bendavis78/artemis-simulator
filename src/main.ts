@@ -74,9 +74,10 @@ cameraController.restoreState();
 const camera = cameraController.camera;
 
 // --- Lighting ---
-const { directional: sunLight, ambient } = createSunLight();
+const { directional: sunLight, ambient, fill } = createSunLight();
 scene.add(sunLight);
 scene.add(ambient);
+scene.add(fill);
 
 // --- Earth ---
 const { mesh: earthMesh, material: earthMaterial } =

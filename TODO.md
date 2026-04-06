@@ -3,7 +3,10 @@
 - [x] Fix reference planes to earth instead of focused body
 - [x] Make grid "infinite" (just extend it to be 2x or 4x bigger)
 - [x] Fix the grid "fade" when plane is different from focused body
-- [ ] Orion path goes through the earth. Is earth position & size correct w/ respect to ephemeris?
+- [x] Orion path goes through the earth. Is earth position & size correct w/ respect to ephemeris?
+- [ ] Auto-hide orion during Orion POV
+- [ ] Stars too faint on mobile?
+- [ ] Remove two finger drag panning on mobile? loses focus obj
 
 # Small features
 
@@ -15,9 +18,10 @@
 
 # Bigger features
 
-- [ ] More compact UI layout, responsive
-- [ ] Mobile / touch friendly
-- [ ] Accurate model of orion
+- [x] More compact UI layout, responsive
+- [x] Mobile / touch friendly
+- [x] Accurate model of orion
+- [ ] Sun / solar effects (Bonus: solar corona around sunset/sunrise)
 - [ ] Flight path for launch & splashdown (check kerbal simulations?)
 
 ---
