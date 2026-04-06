@@ -146,6 +146,8 @@ scene.add(flightPath.progressPath);
 // --- Spacecraft ---
 const { group: spacecraftGroup, marker: spacecraftMarker } =
   createSpacecraft();
+const orionFill = new THREE.HemisphereLight(0xffffff, 0x000000, 0.3);
+spacecraftGroup.add(orionFill);
 scene.add(spacecraftGroup);
 scene.add(spacecraftMarker);
 let orionVisible = true;
