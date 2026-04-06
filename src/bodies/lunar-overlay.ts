@@ -162,21 +162,13 @@ function createOverlayTexture(): THREE.CanvasTexture {
 
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // DEBUG: draw equator (lat=0) and prime meridian (lon=0) for alignment
-  ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
-  ctx.lineWidth = 3;
-  // Equator: horizontal line at lat=0
-  const eqY = latLonToCanvas(0, 0).y;
-  ctx.beginPath();
-  ctx.moveTo(0, eqY);
-  ctx.lineTo(CANVAS_W, eqY);
-  ctx.stroke();
-  // Prime meridian: vertical line at lon=0
-  const pmX = latLonToCanvas(0, 0).x;
-  ctx.beginPath();
-  ctx.moveTo(pmX, 0);
-  ctx.lineTo(pmX, CANVAS_H);
-  ctx.stroke();
+  // DEBUG: uncomment to draw equator + prime meridian for alignment checks
+  // ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+  // ctx.lineWidth = 3;
+  // const eqY = latLonToCanvas(0, 0).y;
+  // ctx.beginPath(); ctx.moveTo(0, eqY); ctx.lineTo(CANVAS_W, eqY); ctx.stroke();
+  // const pmX = latLonToCanvas(0, 0).x;
+  // ctx.beginPath(); ctx.moveTo(pmX, 0); ctx.lineTo(pmX, CANVAS_H); ctx.stroke();
 
   // Draw features by type (back to front for layering)
   for (const f of LUNAR_FEATURES) {
