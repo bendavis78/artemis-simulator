@@ -122,6 +122,7 @@ const raysFragmentShader = /* glsl */ `
     // --- Diffraction starburst ---
     // Multiple overlapping spike sets at different angles, counts, and intensities
     float spikes = 0.0;
+    angle += 0.05; // ~3 degree rotation
 
     // 6 strong primary spikes
     spikes += pow(abs(cos(angle * 3.0)), 90.0) * 1.0;
@@ -168,15 +169,51 @@ const raysFragmentShader = /* glsl */ `
       float hStreak2 = exp(-pow(rot.y * vTight2, 2.0)) *
                        exp(-pow(rot.x * 2.5, 2.0)) * 0.25;
 
-      // Bokeh artifacts (softer edges)
-      float art1 = exp(-pow(length(center - vec2(0.12, 0.002)) * 90.0, 2.0)) * 0.3;
-      float art2 = exp(-pow(length(center - vec2(-0.17, -0.001)) * 110.0, 2.0)) * 0.18;
-      float art3 = exp(-pow(length(center - vec2(0.26, 0.004)) * 140.0, 2.0)) * 0.1;
+      // --- Lens ghost circles (internal reflections) ---
+      // Ghosts anchor to optical axis (sun center), not the offset ray center
+      vec2 optCenter = vUv - 0.5;
+      float ga = 0.52; // ~30 degrees
+      float gcos = cos(ga);
+      float gsin = sin(ga);
 
-      float flareBright = (hStreak + hStreak2 + art1 + art2 + art3) * uFlareIntensity * 0.85;
+      // Ghost positions along the angled axis
+      vec2 gp1 = vec2(-0.10 * gcos, -0.10 * gsin);
+      vec2 gp2 = vec2(-0.22 * gcos, -0.22 * gsin);
+      vec2 gp3 = vec2( 0.15 * gcos,  0.15 * gsin);
+      vec2 gp4 = vec2(-0.32 * gcos, -0.32 * gsin);
+      vec2 gp5 = vec2( 0.28 * gcos,  0.28 * gsin);
 
-      // Blend flare with ray color
-      vec3 flareColor = flareBlue * flareBright;
+      float ghost1 = abs(length(optCenter - gp1) - 0.020);
+      ghost1 = exp(-pow(ghost1 * 170.0, 2.0)) * 0.35;
+
+      float ghost2 = abs(length(optCenter - gp2) - 0.028);
+      ghost2 = exp(-pow(ghost2 * 130.0, 2.0)) * 0.22;
+
+      float ghost3 = exp(-pow(length(optCenter - gp3) * 55.0, 2.0)) * 0.28;
+
+      float ghost4 = abs(length(optCenter - gp4) - 0.016);
+      ghost4 = exp(-pow(ghost4 * 200.0, 2.0)) * 0.15;
+
+      float ghost5 = exp(-pow(length(optCenter - gp5) * 45.0, 2.0)) * 0.18;
+
+      // Tint each ghost with subtle chromatic color
+      vec3 ghostColor = vec3(0.0);
+      ghostColor += vec3(0.5, 0.8, 1.0) * ghost1;  // blue ring
+      ghostColor += vec3(0.4, 1.0, 0.6) * ghost2;  // green ring
+      ghostColor += vec3(1.0, 0.7, 0.4) * ghost3;  // warm dot
+      ghostColor += vec3(0.8, 0.5, 1.0) * ghost4;  // purple ring
+      ghostColor += vec3(0.5, 0.9, 0.9) * ghost5;  // cyan dot
+
+      // --- Broad haze circle (large faint internal reflection) ---
+      vec2 hazePos = vec2(-0.14 * gcos, -0.14 * gsin);
+      float haze = abs(length(optCenter - hazePos) - 0.07);
+      haze = exp(-pow(haze * 32.0, 2.0)) * 0.07;
+      ghostColor += vec3(0.6, 0.75, 1.0) * haze;
+
+      float flareBright = (hStreak + hStreak2) * uFlareIntensity * 0.85;
+
+      // Blend flare with ray color and ghost artifacts
+      vec3 flareColor = flareBlue * flareBright + ghostColor * uFlareIntensity;
       vec3 rayColor = vec3(1.0, 0.95, 0.85) * rayBrightness;
       vec3 combined = rayColor + flareColor;
 
