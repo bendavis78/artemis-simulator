@@ -278,19 +278,6 @@ function animate() {
   // Tidal locking: Moon's near side faces Earth
   moonMesh.lookAt(0, 0, 0);
 
-  // Update sun billboard
-  sunMesh.visible = sunMeshVisible;
-  if (sunMeshVisible) {
-    updateSunMesh({
-      sunDir,
-      camera,
-      bodies: [
-        { position: earthPos, radius: EARTH_RADIUS },
-        { position: moonPos, radius: MOON_RADIUS },
-      ],
-    });
-  }
-
   // Update spacecraft
   const scPos = interpolator.getPosition(met);
   spacecraftMarker.position.copy(scPos);
@@ -325,10 +312,26 @@ function animate() {
   flightPath.update(curveFrac);
 
   // Update body positions and camera first so controls.target is current
+  // Sun "position" for focus: place along sunDir far enough to look at from any body
+  const sunFocusPos = sunDir.clone().multiplyScalar(500);
   cameraController.updateBodyPosition('earth', earthPos);
   cameraController.updateBodyPosition('moon', moonPos);
   cameraController.updateBodyPosition('orion', scPos);
+  cameraController.updateBodyPosition('sun', sunFocusPos);
   cameraController.update();
+
+  // Update sun billboard (after camera update so position is current)
+  sunMesh.visible = sunMeshVisible;
+  if (sunMeshVisible) {
+    updateSunMesh({
+      sunDir,
+      camera,
+      bodies: [
+        { position: earthPos, radius: EARTH_RADIUS },
+        { position: moonPos, radius: MOON_RADIUS },
+      ],
+    });
+  }
 
   // Update reference plane grid resolution and distance fade based on camera
   const focusPos = cameraController.controls.target;

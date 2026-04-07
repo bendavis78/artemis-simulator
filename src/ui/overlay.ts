@@ -423,6 +423,7 @@ export function createOverlay(
           <button class="btn focus-btn" data-focus="earth">Earth</button>
           <button class="btn focus-btn" data-focus="moon">Moon</button>
           <button class="btn focus-btn" data-focus="orion">Orion</button>
+          <button class="btn focus-btn" data-focus="sun">Sun</button>
         </span>
         <div class="dropup" id="focus-dropup">
           <button class="dropup-trigger" id="focus-dropup-trigger">Earth</button>
@@ -430,6 +431,7 @@ export function createOverlay(
             <button class="dropup-item focus-btn" data-focus="earth">Earth</button>
             <button class="dropup-item focus-btn" data-focus="moon">Moon</button>
             <button class="dropup-item focus-btn" data-focus="orion">Orion</button>
+            <button class="dropup-item focus-btn" data-focus="sun">Sun</button>
           </div>
         </div>
         <div class="separator"></div>
@@ -516,6 +518,7 @@ export function createOverlay(
           <tr><td>E</td><td>Focus Earth</td></tr>
           <tr><td>M</td><td>Focus Moon</td></tr>
           <tr><td>O</td><td>Focus Orion</td></tr>
+          <tr><td>S</td><td>Focus Sun</td></tr>
           <tr><td>Shift+E</td><td>Toggle Earth POV</td></tr>
           <tr><td>Shift+O</td><td>Toggle Orion POV</td></tr>
         </table>
@@ -586,7 +589,7 @@ export function createOverlay(
   const povDropupMenu = overlay.querySelector('#pov-dropup-menu') as HTMLDivElement;
 
   // Sync dropup trigger labels with restored state
-  const focusLabel: Record<FocusTarget, string> = { earth: 'Earth', moon: 'Moon', orion: 'Orion' };
+  const focusLabel: Record<FocusTarget, string> = { earth: 'Earth', moon: 'Moon', orion: 'Orion', sun: 'Sun' };
   const modeLabel: Record<CameraMode, string> = { free: 'Free', 'earth-pov': 'Earth POV', 'orion-pov': 'Orion POV' };
   focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
   povDropupTrigger.textContent = modeLabel[cameraController.cameraMode];
@@ -635,25 +638,20 @@ export function createOverlay(
   });
 
   // POV modes available per focus target
-  const POV_MODES: Record<FocusTarget, { mode: CameraMode; label: string }[]> = {
-    earth: [
-      { mode: 'free', label: 'Free' },
-      { mode: 'orion-pov', label: 'Orion POV' },
-    ],
-    moon: [
-      { mode: 'free', label: 'Free' },
-      { mode: 'earth-pov', label: 'Earth POV' },
-      { mode: 'orion-pov', label: 'Orion POV' },
-    ],
-    orion: [
-      { mode: 'free', label: 'Free' },
-    ],
-  };
+  // You can't use a POV from the body you're focused on (camera would be at the target)
+  const ALL_POVS: { mode: CameraMode; label: string; excludeFocus: FocusTarget[] }[] = [
+    { mode: 'free', label: 'Free', excludeFocus: [] },
+    { mode: 'earth-pov', label: 'Earth POV', excludeFocus: ['earth'] },
+    { mode: 'orion-pov', label: 'Orion POV', excludeFocus: ['orion'] },
+  ];
+  function getPovModes(focus: FocusTarget): { mode: CameraMode; label: string }[] {
+    return ALL_POVS.filter((p) => !p.excludeFocus.includes(focus));
+  }
 
   const povDropup = overlay.querySelector('#pov-dropup') as HTMLDivElement;
 
   function updatePovMenu(focus: FocusTarget): void {
-    const modes = POV_MODES[focus];
+    const modes = getPovModes(focus);
     // Hide dropdown when only Free is available
     povDropup.style.display = modes.length <= 1 ? 'none' : 'inline-block';
     // Rebuild menu items
@@ -810,9 +808,9 @@ export function createOverlay(
       return;
     }
 
-    // Shift+E: toggle Earth POV (only when moon focused)
+    // Shift+E: toggle Earth POV
     if (e.key === 'E' && e.shiftKey) {
-      const modes = POV_MODES[cameraController.focusTarget];
+      const modes = getPovModes(cameraController.focusTarget);
       if (modes.some((m) => m.mode === 'earth-pov')) {
         const mode = cameraController.cameraMode === 'earth-pov' ? 'free' : 'earth-pov';
         setModeAndSync(mode);
@@ -820,9 +818,9 @@ export function createOverlay(
       return;
     }
 
-    // Shift+O: toggle Orion POV (when moon or earth focused)
+    // Shift+O: toggle Orion POV
     if (e.key === 'O' && e.shiftKey) {
-      const modes = POV_MODES[cameraController.focusTarget];
+      const modes = getPovModes(cameraController.focusTarget);
       if (modes.some((m) => m.mode === 'orion-pov')) {
         const mode = cameraController.cameraMode === 'orion-pov' ? 'free' : 'orion-pov';
         setModeAndSync(mode);
@@ -843,6 +841,8 @@ export function createOverlay(
     if (e.key === 'm') { setFocusAndSync('moon'); return; }
     // o: focus orion
     if (e.key === 'o') { setFocusAndSync('orion'); return; }
+    // s: focus sun
+    if (e.key === 's') { setFocusAndSync('sun'); return; }
 
     // ?: keyboard reference
     if (e.key === '?') { kbModal.classList.toggle('open'); return; }

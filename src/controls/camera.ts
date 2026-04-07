@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EARTH_RADIUS, MOON_RADIUS } from '../constants';
 import { getIcrfNormal, getEclipticNormal, getMoonOrbitalNormal } from '../astro/reference-planes';
 
-export type FocusTarget = 'earth' | 'moon' | 'orion';
+export type FocusTarget = 'earth' | 'moon' | 'orion' | 'sun';
 export type ReferencePlane = 'icrf' | 'ecliptic' | 'lunar';
 export type CameraMode = 'free' | 'earth-pov' | 'orion-pov';
 
@@ -30,6 +30,7 @@ const FOCUS_CONFIGS: Record<FocusTarget, FocusConfig> = {
   earth: { defaultDistance: 30, minDistance: EARTH_RADIUS + 0.5, maxDistance: 1200 },
   moon: { defaultDistance: 10, minDistance: MOON_RADIUS + 0.2, maxDistance: 200 },
   orion: { defaultDistance: 2, minDistance: 0.05, maxDistance: 100 },
+  sun: { defaultDistance: 50, minDistance: 5, maxDistance: 2000 },
 };
 
 const PLANE_NORMALS: Record<ReferencePlane, () => THREE.Vector3> = {
@@ -50,6 +51,7 @@ export class CameraController {
     earth: new THREE.Vector3(),
     moon: new THREE.Vector3(),
     orion: new THREE.Vector3(),
+    sun: new THREE.Vector3(),
   };
 
   // Track previous body position to compute frame-to-frame delta
@@ -280,6 +282,19 @@ export class CameraController {
     event.preventDefault();
   }
 
+  /**
+   * For POV modes: compute the lookAt world point for a given focus target.
+   * Sun is at infinity, so we look along its direction from the camera
+   * rather than at a fixed world point (avoids parallax).
+   */
+  private povLookAtTarget(camPos: THREE.Vector3, targetPos: THREE.Vector3): THREE.Vector3 {
+    if (this.focusTarget === 'sun') {
+      const sunDir = targetPos.clone().normalize();
+      return camPos.clone().addScaledVector(sunDir, 1000);
+    }
+    return targetPos;
+  }
+
   updateBodyPosition(body: FocusTarget, position: THREE.Vector3): void {
     this.bodyPositions[body].copy(position);
   }
@@ -351,15 +366,17 @@ export class CameraController {
       // Camera at Earth origin, looking at focus target — bypass OrbitControls entirely
       const target = this.bodyPositions[this.focusTarget];
       this.camera.position.set(0, 0, 0);
-      this.camera.lookAt(target);
-      this.controls.target.copy(target);
+      const lookAt = this.povLookAtTarget(this.camera.position, target);
+      this.camera.lookAt(lookAt);
+      this.controls.target.copy(lookAt);
       this.lastBodyPos.copy(target);
     } else if (this.cameraMode === 'orion-pov') {
       // Camera at Orion, looking at focus target — bypass OrbitControls entirely
       const target = this.bodyPositions[this.focusTarget];
       this.camera.position.copy(this.bodyPositions.orion);
-      this.camera.lookAt(target);
-      this.controls.target.copy(target);
+      const lookAt = this.povLookAtTarget(this.camera.position, target);
+      this.camera.lookAt(lookAt);
+      this.controls.target.copy(lookAt);
       this.lastBodyPos.copy(target);
     } else {
       // Free mode: move camera + target with the body so orbiting stays centered
