@@ -18,9 +18,12 @@ export function createSunLight(): {
 // --- Visible Sun Billboard ---
 
 const SUN_DISTANCE = 1500; // scene units from camera (within far plane)
-const BILLBOARD_SIZE = 300; // full width/height of glow quad
+const DISC_BILLBOARD = 300; // corona + disc quad size
+const RAYS_BILLBOARD = 600; // starburst quad size (rays extend further)
 
-const sunVertexShader = /* glsl */ `
+// --- Disc + Corona layer (depth-tested, gets occluded by bodies) ---
+
+const discVertexShader = /* glsl */ `
   #ifdef USE_LOGDEPTHBUF
     varying float vFragDepth;
     uniform float logDepthBufFC;
@@ -39,21 +42,19 @@ const sunVertexShader = /* glsl */ `
   }
 `;
 
-const sunFragmentShader = /* glsl */ `
+const discFragmentShader = /* glsl */ `
   #ifdef USE_LOGDEPTHBUF
     varying float vFragDepth;
     uniform float logDepthBufFC;
   #endif
 
-  uniform float uFlareIntensity;
-
   varying vec2 vUv;
 
   void main() {
     vec2 center = vUv - 0.5;
-    float r = length(center) * 2.0; // 0 at center, 1 at billboard edge
+    float r = length(center) * 2.0;
 
-    // Sun disc (~0.5 degree angular size)
+    // Sun disc
     float discR = 0.08;
     float disc = smoothstep(discR, discR - 0.006, r);
 
@@ -61,61 +62,33 @@ const sunFragmentShader = /* glsl */ `
     float limbDark = 1.0 - 0.5 * pow(r / discR, 2.0);
     disc *= max(limbDark, 0.0);
 
-    // Inner corona — tight glow just outside the disc
+    // Inner corona
     float dr = max(r - discR, 0.0);
     float innerCorona = 0.6 * exp(-dr * 18.0);
 
-    // Outer corona — wide soft glow
+    // Outer corona
     float outerCorona = 0.08 / (1.0 + pow(r * 4.5, 2.5));
 
-    // Radial ray structure
+    // Soft radial structure in corona (not the starburst — that's the rays layer)
     float angle = atan(center.y, center.x);
-    float rays = pow(0.5 + 0.5 * sin(angle * 13.0), 6.0) * 0.4
-               + pow(0.5 + 0.5 * cos(angle * 7.0 + 0.7), 8.0) * 0.2;
-    rays *= exp(-r * 5.0) * 0.15;
+    float coronaRays = pow(0.5 + 0.5 * sin(angle * 13.0), 6.0) * 0.15
+                     + pow(0.5 + 0.5 * cos(angle * 7.0 + 0.7), 8.0) * 0.08;
+    coronaRays *= exp(-r * 6.0) * 0.12;
 
-    float sunBrightness = disc * 6.0 + innerCorona + outerCorona + rays;
+    float brightness = disc * 6.0 + innerCorona + outerCorona + coronaRays;
 
-    // Sun color gradient: white core → gold → warm red outer
+    // Color gradient
     vec3 white = vec3(1.0, 0.98, 0.92);
     vec3 gold = vec3(1.0, 0.85, 0.55);
     vec3 warm = vec3(0.9, 0.5, 0.2);
 
-    vec3 sunColor = mix(warm, gold, smoothstep(0.5, 0.12, r));
-    sunColor = mix(sunColor, white, disc);
+    vec3 color = mix(warm, gold, smoothstep(0.5, 0.12, r));
+    color = mix(color, white, disc);
 
-    // --- Anamorphic lens flare (JJ Abrams style) ---
-    vec3 flareContrib = vec3(0.0);
-    if (uFlareIntensity > 0.01) {
-      vec3 flareBlue = vec3(0.6, 0.85, 1.0);
-
-      // Main horizontal anamorphic streak
-      float hStreak = exp(-pow(center.y * 45.0, 2.0)) *
-                      1.0 / (1.0 + pow(center.x * 2.5, 2.0));
-
-      // Secondary streak at slight angle
-      float sa = 0.12;
-      vec2 rot = vec2(
-        center.x * cos(sa) + center.y * sin(sa),
-        -center.x * sin(sa) + center.y * cos(sa)
-      );
-      float hStreak2 = exp(-pow(rot.y * 65.0, 2.0)) *
-                       1.0 / (1.0 + pow(rot.x * 4.0, 2.0)) * 0.25;
-
-      // Small circular bokeh artifacts along the streak
-      float art1 = smoothstep(0.014, 0.007, length(center - vec2(0.12, 0.002))) * 0.35;
-      float art2 = smoothstep(0.010, 0.005, length(center - vec2(-0.17, -0.001))) * 0.2;
-      float art3 = smoothstep(0.007, 0.003, length(center - vec2(0.26, 0.004))) * 0.12;
-
-      float flareBright = (hStreak + hStreak2 + art1 + art2 + art3) * uFlareIntensity;
-      flareContrib = flareBlue * flareBright * 1.2;
-    }
-
-    vec3 finalColor = sunColor * sunBrightness + flareContrib;
-    float alpha = clamp(max(max(finalColor.r, finalColor.g), finalColor.b), 0.0, 1.0);
+    float alpha = clamp(brightness, 0.0, 1.0);
     if (alpha < 0.003) discard;
 
-    gl_FragColor = vec4(finalColor, alpha);
+    gl_FragColor = vec4(color * brightness, alpha);
 
     #ifdef USE_LOGDEPTHBUF
       gl_FragDepth = log2(vFragDepth) * logDepthBufFC * 0.5;
@@ -123,74 +96,234 @@ const sunFragmentShader = /* glsl */ `
   }
 `;
 
+// --- Starburst rays layer (NO depth test — renders on top of everything) ---
+
+const raysVertexShader = /* glsl */ `
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const raysFragmentShader = /* glsl */ `
+  uniform float uVisibility; // 0 = fully occluded, 1 = fully visible
+  uniform float uFlareIntensity; // 0 = no occultation, peaks at limb crossing
+  uniform vec2 uRayOffset; // screen-space offset toward visible sun sliver
+
+  varying vec2 vUv;
+
+  void main() {
+    vec2 center = vUv - 0.5 - uRayOffset;
+    float r = length(center) * 2.0;
+    float angle = atan(center.y, center.x);
+
+    // --- Diffraction starburst ---
+    // Multiple overlapping spike sets at different angles, counts, and intensities
+    float spikes = 0.0;
+
+    // 6 strong primary spikes
+    spikes += pow(abs(cos(angle * 3.0)), 90.0) * 1.0;
+    // 8 medium spikes, rotated
+    spikes += pow(abs(cos(angle * 4.0 + 0.25)), 100.0) * 0.6;
+    // 10 finer spikes
+    spikes += pow(abs(cos(angle * 5.0 + 0.7)), 120.0) * 0.35;
+    // 14 subtle spikes
+    spikes += pow(abs(cos(angle * 7.0 + 1.2)), 150.0) * 0.18;
+    // 4 faint wide spikes (cross-hatch feel)
+    spikes += pow(abs(cos(angle * 2.0 + 0.5)), 60.0) * 0.12;
+
+    // Shorter radial falloff
+    float radialFade = exp(-r * 5.5);
+    float tailFade = exp(-r * 3.0) * 0.2;
+
+    float rayBrightness = spikes * (radialFade + tailFade);
+
+    // Central glow to anchor the rays
+    float centralGlow = exp(-r * 10.0) * 0.4;
+    rayBrightness += centralGlow;
+
+    // Scale by sun visibility — rays diminish as sun is occluded
+    rayBrightness *= uVisibility * 2.5;
+
+    // --- Anamorphic lens flare (JJ Abrams) during occultation ---
+    if (uFlareIntensity > 0.01) {
+      vec3 flareBlue = vec3(0.6, 0.85, 1.0);
+
+      // Main horizontal streak — tapers to a point at the ends
+      float hDist = abs(center.x);
+      float vTightness = 45.0 + hDist * 300.0; // gets thinner further out
+      float hStreak = exp(-pow(center.y * vTightness, 2.0)) *
+                      exp(-pow(center.x * 1.6, 2.0));
+
+      // Secondary angled streak
+      float sa = 0.12;
+      vec2 rot = vec2(
+        center.x * cos(sa) + center.y * sin(sa),
+        -center.x * sin(sa) + center.y * cos(sa)
+      );
+      float hDist2 = abs(rot.x);
+      float vTight2 = 65.0 + hDist2 * 400.0;
+      float hStreak2 = exp(-pow(rot.y * vTight2, 2.0)) *
+                       exp(-pow(rot.x * 2.5, 2.0)) * 0.25;
+
+      // Bokeh artifacts (softer edges)
+      float art1 = exp(-pow(length(center - vec2(0.12, 0.002)) * 90.0, 2.0)) * 0.3;
+      float art2 = exp(-pow(length(center - vec2(-0.17, -0.001)) * 110.0, 2.0)) * 0.18;
+      float art3 = exp(-pow(length(center - vec2(0.26, 0.004)) * 140.0, 2.0)) * 0.1;
+
+      float flareBright = (hStreak + hStreak2 + art1 + art2 + art3) * uFlareIntensity * 0.85;
+
+      // Blend flare with ray color
+      vec3 flareColor = flareBlue * flareBright;
+      vec3 rayColor = vec3(1.0, 0.95, 0.85) * rayBrightness;
+      vec3 combined = rayColor + flareColor;
+
+      float alpha = clamp(max(max(combined.r, combined.g), combined.b), 0.0, 1.0);
+      if (alpha < 0.003) discard;
+      gl_FragColor = vec4(combined, alpha);
+      return;
+    }
+
+    // Ray color — warm white
+    vec3 color = vec3(1.0, 0.95, 0.85) * rayBrightness;
+
+    float alpha = clamp(max(max(color.r, color.g), color.b), 0.0, 1.0);
+    if (alpha < 0.003) discard;
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+// Reusable temp vectors to avoid per-frame allocations
+const _v = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+
 /** Approximate sun angular radius in radians (matches discR=0.08 on billboard) */
-const SUN_ANG_RADIUS = Math.atan2(BILLBOARD_SIZE * 0.08 / 2, SUN_DISTANCE);
+const SUN_ANG_RADIUS = Math.atan2(DISC_BILLBOARD * 0.08 / 2, SUN_DISTANCE);
 
 export function createSunMesh(): {
-  mesh: THREE.Mesh;
+  group: THREE.Group;
   update: (opts: {
     sunDir: THREE.Vector3;
     camera: THREE.PerspectiveCamera;
     bodies: { position: THREE.Vector3; radius: number }[];
   }) => void;
 } {
-  const geometry = new THREE.PlaneGeometry(BILLBOARD_SIZE, BILLBOARD_SIZE);
-  const material = new THREE.ShaderMaterial({
-    vertexShader: sunVertexShader,
-    fragmentShader: sunFragmentShader,
+  const group = new THREE.Group();
+  group.name = 'sunGroup';
+
+  // --- Disc + corona mesh (depth-tested) ---
+  const discGeom = new THREE.PlaneGeometry(DISC_BILLBOARD, DISC_BILLBOARD);
+  const discMat = new THREE.ShaderMaterial({
+    vertexShader: discVertexShader,
+    fragmentShader: discFragmentShader,
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     depthTest: true,
     side: THREE.DoubleSide,
-    defines: {
-      USE_LOGDEPTHBUF: '',
-    },
+    defines: { USE_LOGDEPTHBUF: '' },
     uniforms: {
       logDepthBufFC: { value: 0 },
-      uFlareIntensity: { value: 0 },
     },
   });
+  const discMesh = new THREE.Mesh(discGeom, discMat);
+  discMesh.frustumCulled = false;
+  group.add(discMesh);
 
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.name = 'sunBillboard';
-  mesh.frustumCulled = false;
+  // --- Starburst rays mesh (NO depth test — renders on top) ---
+  const raysGeom = new THREE.PlaneGeometry(RAYS_BILLBOARD, RAYS_BILLBOARD);
+  const raysMat = new THREE.ShaderMaterial({
+    vertexShader: raysVertexShader,
+    fragmentShader: raysFragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uVisibility: { value: 1.0 },
+      uFlareIntensity: { value: 0.0 },
+      uRayOffset: { value: new THREE.Vector2(0, 0) },
+    },
+  });
+  const raysMesh = new THREE.Mesh(raysGeom, raysMat);
+  raysMesh.frustumCulled = false;
+  raysMesh.renderOrder = 999; // render after everything
+  group.add(raysMesh);
 
   function update({ sunDir, camera, bodies }: {
     sunDir: THREE.Vector3;
     camera: THREE.PerspectiveCamera;
     bodies: { position: THREE.Vector3; radius: number }[];
   }): void {
-    // Position relative to camera (no parallax — sun is at infinity)
-    mesh.position.copy(camera.position).addScaledVector(sunDir, SUN_DISTANCE);
+    // Position relative to camera (no parallax)
+    group.position.copy(camera.position).addScaledVector(sunDir, SUN_DISTANCE);
     // Match camera orientation so flare streaks stay screen-horizontal
-    mesh.quaternion.copy(camera.quaternion);
+    group.quaternion.copy(camera.quaternion);
 
     // Update log depth buffer uniform
-    material.uniforms.logDepthBufFC.value =
+    discMat.uniforms.logDepthBufFC.value =
       2.0 / (Math.log(camera.far + 1.0) / Math.LN2);
 
-    // Compute lens flare intensity from body occultation
+    // Compute sun visibility and flare intensity from body occultation
+    let minVisibility = 1.0;
     let flare = 0;
+    let primaryOccluderDir: THREE.Vector3 | null = null;
+
     for (const body of bodies) {
       const toBody = body.position.clone().sub(camera.position);
       const bodyDist = toBody.length();
-      if (bodyDist < 0.1) continue; // camera inside body
+      if (bodyDist < 0.1) continue;
 
-      const angularSep = sunDir.angleTo(toBody.normalize());
+      const bodyDir = toBody.normalize();
+      const angularSep = sunDir.angleTo(bodyDir);
       const bodyAngRadius = Math.atan2(body.radius, bodyDist);
 
-      // t = distance from body limb in sun-radii units
-      // t > 0: sun visible beyond limb, t < 0: sun behind body
+      // t = sun center distance from body limb, in sun-radii units
       const t = (angularSep - bodyAngRadius) / SUN_ANG_RADIUS;
 
-      // Gaussian peak at limb crossing, cut off when deep behind
+      // Visibility: 1 when sun fully clear, 0 when fully behind
+      // Ramps from 1 to 0 as t goes from +1 (sun just touching limb) to -1 (fully behind)
+      const vis = THREE.MathUtils.smoothstep(t, -1.0, 1.0);
+      if (vis < minVisibility) {
+        minVisibility = vis;
+        primaryOccluderDir = bodyDir;
+      }
+
+      // Flare: Gaussian peak at limb crossing, fades deep behind
       const gaussian = Math.exp(-t * t * 0.5);
       const behindFade = THREE.MathUtils.smoothstep(t, -4, -1);
       flare = Math.max(flare, gaussian * behindFade);
     }
-    material.uniforms.uFlareIntensity.value = flare;
+
+    // Compute ray center offset toward the visible sliver of sun.
+    // Project occluder direction into camera screen space, then shift rays
+    // away from the body (toward the exposed crescent).
+    const offset = raysMat.uniforms.uRayOffset.value as THREE.Vector2;
+    offset.set(0, 0);
+
+    if (primaryOccluderDir && minVisibility < 0.98) {
+      // Difference between occluder and sun direction projected onto screen axes
+      const diff = _v.copy(primaryOccluderDir).sub(sunDir);
+      const camRight = _v2.set(1, 0, 0).applyQuaternion(camera.quaternion);
+      const screenX = diff.dot(camRight);
+      const camUp = _v2.set(0, 1, 0).applyQuaternion(camera.quaternion);
+      const screenY = diff.dot(camUp);
+      const len = Math.sqrt(screenX * screenX + screenY * screenY);
+
+      if (len > 1e-6) {
+        // Shift away from the occluder, scaled by how much is hidden.
+        // Max offset ~0.03 in UV space (≈ sun disc radius on the rays billboard)
+        const amount = (1.0 - minVisibility) * 0.03;
+        offset.set(-screenX / len * amount, -screenY / len * amount);
+      }
+    }
+
+    raysMat.uniforms.uVisibility.value = minVisibility;
+    raysMat.uniforms.uFlareIntensity.value = flare;
   }
 
-  return { mesh, update };
+  return { group, update };
 }

@@ -8,6 +8,7 @@
 - [x] Lighting weridness on moon
 - [x] Move debug info up into main view, one var per line, right flush, vert center
 - [x] Put debug values on separate lines
+- [ ] Eclipse timing not lining up (actual eclipse time 7:34pm)
 - [ ] Remove two finger drag panning on mobile? loses focus obj
 - [ ] Stars too faint on mobile?
 

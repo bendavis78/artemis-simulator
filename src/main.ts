@@ -81,8 +81,8 @@ scene.add(ambient);
 scene.add(fill);
 
 // --- Sun Mesh ---
-const { mesh: sunMesh, update: updateSunMesh } = createSunMesh();
-scene.add(sunMesh);
+const { group: sunGroup, update: updateSunMesh } = createSunMesh();
+scene.add(sunGroup);
 let sunMeshVisible = true;
 
 // --- Earth ---
@@ -321,7 +321,7 @@ function animate() {
   cameraController.update();
 
   // Update sun billboard (after camera update so position is current)
-  sunMesh.visible = sunMeshVisible;
+  sunGroup.visible = sunMeshVisible;
   if (sunMeshVisible) {
     updateSunMesh({
       sunDir,
