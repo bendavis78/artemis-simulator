@@ -8,9 +8,12 @@
 - [x] Lighting weridness on moon
 - [x] Move debug info up into main view, one var per line, right flush, vert center
 - [x] Put debug values on separate lines
-- [ ] Eclipse timing not lining up (actual eclipse time 7:34pm)
-- [ ] Remove two finger drag panning on mobile? loses focus obj
-- [ ] Stars too faint on mobile?
+- [x] Stars too faint on mobile?
+- [ ] Blue-ish tint on mobile?
+- [ ] Eclipse timing not lining up (actual eclipse time 7:34pm CT, corona visible on vehicle cam until 7:45,)
+  - Should be 54 minutes of totality
+  - See NASA visualization /home/ben/Pictures/Screenshots/Screenshot From 2026-04-06 20-32-55.png
+- [ ] Eclipse 2 (sunrise) corona begins to peek on vehicle cam @ 8:17pm CT, "baby hair" at 8:24p, over by 8:30pm, not showing in simulation
 
 # Small features
 

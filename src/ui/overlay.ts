@@ -484,8 +484,12 @@ export function createOverlay(
                 <option value="12">12h</option>
               </select>
             </label>
-            <button class="btn" id="show-kb-ref" style="margin-top: 12px; width: 100%;">Keyboard Shortcuts</button>
-            <button class="btn" id="reset-state" style="margin-top: 8px; width: 100%; color: #e05555; border-color: rgba(220,50,50,0.3);">Reset Settings</button>
+            <div clas="btn-row">
+                <button class="btn" id="show-kb-ref" style="margin-top: 12px; width: 100%;">Keyboard Shortcuts</button>
+            </div>
+            <div clas="btn-row">
+                <button class="btn" id="reset-state" style="margin-top: 8px; width: 100%; color: #e05555; border-color: rgba(220,50,50,0.3);">Reset Settings</button>
+            </div>
           </div>
           <button class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</button>
         </div>
