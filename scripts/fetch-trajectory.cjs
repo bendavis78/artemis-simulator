@@ -57,8 +57,17 @@ const spacecraftCoarseAfterParams = new URLSearchParams({
   ...baseParams,
   COMMAND: "'-1024'",
   START_TIME: `'${PERIGEE_END}'`,
-  STOP_TIME: "'2026-04-10 23:30'",
+  STOP_TIME: "'2026-04-10 21:00'",
   STEP_SIZE: "'30 min'",
+});
+
+// Fine steps for final approach/reentry (Horizons ephemeris ends ~MET 217.3h at ~180 km alt)
+const spacecraftReentryParams = new URLSearchParams({
+  ...baseParams,
+  COMMAND: "'-1024'",
+  START_TIME: "'2026-04-10 21:00'",
+  STOP_TIME: "'2026-04-10 23:54'",
+  STEP_SIZE: "'2 min'",
 });
 
 const moonParams = new URLSearchParams({
@@ -235,12 +244,13 @@ async function main() {
   const coarseBefore = await fetchHorizonsData(spacecraftCoarseBeforeParams, 'spacecraft (pre-perigee)');
   const fine = await fetchHorizonsData(spacecraftFineParams, 'spacecraft (perigee, 2-min)');
   const coarseAfter = await fetchHorizonsData(spacecraftCoarseAfterParams, 'spacecraft (post-perigee)');
+  const reentry = await fetchHorizonsData(spacecraftReentryParams, 'spacecraft (reentry, 2-min)');
   const moonData = await fetchHorizonsData(moonParams, 'moon ephemeris');
 
   // Merge segments, removing duplicate timestamps at boundaries
   const seen = new Set();
   const spacecraftData = [];
-  for (const segment of [coarseBefore, fine, coarseAfter]) {
+  for (const segment of [coarseBefore, fine, coarseAfter, reentry]) {
     for (const pt of segment) {
       const key = pt.met.toFixed(4);
       if (!seen.has(key)) {

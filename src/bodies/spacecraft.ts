@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /**
- * Procedural Orion MPCV (Artemis I configuration).
+ * Orion MPCV (Artemis II configuration).
  *
- * Built from Three.js primitives — no external model files.
- * Real full-stack height is ~9.5 m; we map that to S = 0.15 Three.js units.
+ * CM and SM bodies are loaded from GLB models extracted from NASA's AROW simulator.
+ * Solar wings, nozzle, and docking adapter remain procedural.
  *
  * Orientation: lookAt() aligns -Z toward the target, so:
  *   -Z = nose (docking adapter, velocity direction)
@@ -12,8 +13,10 @@ import * as THREE from 'three';
  *
  * All parts are built along the Y axis (Three.js convention for cylinders),
  * then the entire inner group is rotated so +Y → -Z.
+ * GLB models have their axis along Z, so they get rotation.x = Math.PI/2
+ * to bring +Z → +Y (nose direction) before the inner group rotation.
  */
-export function createSpacecraft(): {
+export function createSpacecraft(loadingManager: THREE.LoadingManager): {
   group: THREE.Group;
   marker: THREE.Sprite;
 } {
@@ -27,29 +30,13 @@ export function createSpacecraft(): {
   const S = 0.15;
   const m = S / 9.5; // 1 real meter in Three.js units
 
-  // Crew Module — straight truncated cone
-  const cmBaseR = 2.51 * m;   // 5.02m diameter
-  const cmTopR = 1.0 * m;     // ~2.0m diameter
   const cmH = 3.3 * m;
-
-  // Heat shield
-  const heatShieldR = cmBaseR;
-  const heatShieldThick = 0.15 * m;
-
-  // CMA ring (adapter between CM and ESM)
-  const cmaBotR = 2.05 * m;   // 4.1m diameter
   const cmaH = 0.8 * m;
-
-  // ESM — uniform silver cylinder
-  const esmR = cmaBotR;
+  const esmR = 2.05 * m;
   const esmH = 4.0 * m;
-
-  // Engine nozzle
   const nozzleThroatR = 0.25 * m;
   const nozzleExitR = 0.6 * m;
   const nozzleH = 1.1 * m;
-
-  // Docking adapter
   const dockR = 0.6 * m;
   const dockH = 0.3 * m;
 
@@ -57,7 +44,7 @@ export function createSpacecraft(): {
   const wingLength = 7.375 * m;
   const wingWidth = 1.92 * m;
   const wingThick = 0.02 * m;
-  const wingSplay = 0.30; // radians (~17°), aft tilt
+  const wingSplay = 0.30;
 
   // --- Y positions (nose at top, engine at bottom) ---
   const stackTop = S / 2;
@@ -72,22 +59,33 @@ export function createSpacecraft(): {
   const nozzleTop = esmBot;
   const nozzleBot = nozzleTop - nozzleH;
 
-  // --- Materials (silver/metallic body matching reference images) ---
-  const matBody = new THREE.MeshStandardMaterial({
-    color: 0xc0b8b0, metalness: 0.5, roughness: 0.35,
-  });
-  const matHeatShield = new THREE.MeshStandardMaterial({
-    color: 0x1a1008, metalness: 0.05, roughness: 0.9,
-  });
-  const matEsm = new THREE.MeshStandardMaterial({
-    color: 0xf0ece8, metalness: 0.3, roughness: 0.5,
-  });
+  // --- Engine Nozzle ---
   const matNozzle = new THREE.MeshStandardMaterial({
     color: 0x808080, metalness: 0.7, roughness: 0.25, side: THREE.DoubleSide,
   });
+  const nozzleGeom = new THREE.CylinderGeometry(
+    nozzleThroatR, nozzleExitR, nozzleH, 12, 1, true,
+  );
+  const nozzleMesh = new THREE.Mesh(nozzleGeom, matNozzle);
+  nozzleMesh.position.y = (nozzleTop + nozzleBot) / 2;
+  inner.add(nozzleMesh);
+
+  // --- Docking Adapter ---
   const matDocking = new THREE.MeshStandardMaterial({
     color: 0xb0b0b0, metalness: 0.6, roughness: 0.3,
   });
+  const dockGeom = new THREE.CylinderGeometry(dockR, dockR, dockH, 12);
+  const dockMesh = new THREE.Mesh(dockGeom, matDocking);
+  dockMesh.position.y = (dockTop + dockBot) / 2;
+  inner.add(dockMesh);
+
+  const ringGeom = new THREE.TorusGeometry(dockR, 0.002 * S / 0.15, 6, 16);
+  const ringMesh = new THREE.Mesh(ringGeom, matDocking);
+  ringMesh.position.y = dockTop;
+  ringMesh.rotation.x = Math.PI / 2;
+  inner.add(ringMesh);
+
+  // --- Solar Wings x4 (X-wing, procedural) ---
   const matSolarFront = new THREE.MeshStandardMaterial({
     color: 0xb08868, metalness: 0.4, roughness: 0.45,
   });
@@ -98,109 +96,99 @@ export function createSpacecraft(): {
     color: 0xe8e8e8, metalness: 0.3, roughness: 0.5,
   });
 
-  // --- Part 1: Crew Module (straight truncated cone, closed) ---
-  // CylinderGeometry(radiusTop, radiusBottom, height, segments)
-  // Top of cylinder = narrow end (nose side), bottom = wide base
-  const cmGeom = new THREE.CylinderGeometry(cmTopR, cmBaseR, cmH, 24);
-  const cmMesh = new THREE.Mesh(cmGeom, matBody);
-  cmMesh.position.y = (cmTop + cmBot) / 2;
-  inner.add(cmMesh);
-
-  // --- Part 2: Heat Shield (flat disc at CM base) ---
-  const hsGeom = new THREE.CylinderGeometry(
-    heatShieldR, heatShieldR, heatShieldThick, 24,
-  );
-  const hsMesh = new THREE.Mesh(hsGeom, matHeatShield);
-  hsMesh.position.y = cmBot - heatShieldThick / 2;
-  inner.add(hsMesh);
-
-  // --- Part 3: CMA Ring (tapered adapter) ---
-  const cmaGeom = new THREE.CylinderGeometry(cmBaseR, cmBaseR, cmaH, 16);
-  const cmaMesh = new THREE.Mesh(cmaGeom, matEsm);
-  cmaMesh.position.y = (cmaTop + cmaBot) / 2;
-  inner.add(cmaMesh);
-
-  // --- Part 4: ESM Body (single silver cylinder) ---
-  const esmGeom = new THREE.CylinderGeometry(esmR, esmR, esmH, 16);
-  const esmMesh = new THREE.Mesh(esmGeom, matEsm);
-  esmMesh.position.y = (esmTop + esmBot) / 2;
-  inner.add(esmMesh);
-
-  // --- Part 5: Engine Nozzle (open-ended truncated cone) ---
-  const nozzleGeom = new THREE.CylinderGeometry(
-    nozzleThroatR, nozzleExitR, nozzleH, 12, 1, true,
-  );
-  const nozzleMesh = new THREE.Mesh(nozzleGeom, matNozzle);
-  nozzleMesh.position.y = (nozzleTop + nozzleBot) / 2;
-  inner.add(nozzleMesh);
-
-  // --- Part 6: Docking Adapter ---
-  const dockGeom = new THREE.CylinderGeometry(dockR, dockR, dockH, 12);
-  const dockMesh = new THREE.Mesh(dockGeom, matDocking);
-  dockMesh.position.y = (dockTop + dockBot) / 2;
-  inner.add(dockMesh);
-
-  // Docking ring (torus at the very nose)
-  const ringGeom = new THREE.TorusGeometry(dockR, 0.002 * S / 0.15, 6, 16);
-  const ringMesh = new THREE.Mesh(ringGeom, matDocking);
-  ringMesh.position.y = dockTop;
-  ringMesh.rotation.x = Math.PI / 2;
-  inner.add(ringMesh);
-
-  // --- Part 7: Solar Wings x4 (X-wing) ---
-  // Each wing has 3 rectangular panels with white frame borders
-  const solarMountY = esmBot + esmH * 0.3; // aft third of ESM
+  const solarMountY = esmBot + esmH * 0.3;
   const panelCount = 3;
-  const panelGap = 0.3 * m;     // gap between panels
-  const frameThick = 0.08 * m;  // border width around each panel
+  const panelGap = 0.3 * m;
+  const frameThick = 0.08 * m;
   const singlePanelLen = (wingLength - panelGap * (panelCount - 1)) / panelCount;
   const cellLen = singlePanelLen - frameThick * 2;
   const cellWidth = wingWidth - frameThick * 2;
 
   function buildWing(): THREE.Group {
     const wingGroup = new THREE.Group();
-
     for (let p = 0; p < panelCount; p++) {
       const panelX = p * (singlePanelLen + panelGap) + singlePanelLen / 2;
-
-      // White frame (full panel rectangle, slightly thinner than cells)
-      const frameGeom = new THREE.BoxGeometry(
-        singlePanelLen, wingThick, wingWidth,
-      );
+      const frameGeom = new THREE.BoxGeometry(singlePanelLen, wingThick, wingWidth);
       const frame = new THREE.Mesh(frameGeom, matSolarFrame);
       frame.position.x = panelX;
       wingGroup.add(frame);
 
-      // Front face cell (copper) — sits slightly above frame
       const frontGeom = new THREE.BoxGeometry(cellLen, wingThick * 0.3, cellWidth);
       const front = new THREE.Mesh(frontGeom, matSolarFront);
       front.position.set(panelX, wingThick * 0.5, 0);
       wingGroup.add(front);
 
-      // Back face cell (dark blue) — sits slightly below frame
       const backGeom = new THREE.BoxGeometry(cellLen, wingThick * 0.3, cellWidth);
       const back = new THREE.Mesh(backGeom, matSolarBack);
       back.position.set(panelX, -wingThick * 0.5, 0);
       wingGroup.add(back);
     }
-
     return wingGroup;
   }
 
   for (let i = 0; i < 4; i++) {
     const pivot = new THREE.Group();
     pivot.position.y = solarMountY;
-
     const wing = buildWing();
-    wing.position.x = esmR; // root starts at ESM surface
-    // Splay: tilt wing tip toward -Y (aft direction)
+    wing.position.x = esmR;
     wing.rotation.z = -wingSplay;
     pivot.add(wing);
-
-    // Rotate pivot around Y for 4-wing X arrangement (45°, 135°, 225°, 315°)
     pivot.rotation.y = (Math.PI / 4) + (Math.PI / 2) * i;
     inner.add(pivot);
   }
+
+  // --- Load GLB models ---
+  const loader = new GLTFLoader(loadingManager);
+
+  // Crew Module — GLB axis is along Z; rotation.x = π/2 brings +Z → +Y (nose up)
+  loader.load('/models/orion-command-module.glb', (gltf) => {
+    const model = gltf.scene;
+    model.rotation.x = Math.PI / 2;
+
+    // Scale to span CM + CMA adapter height
+    const targetH = cmH + cmaH;
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const scale = targetH / size.y;
+    model.scale.setScalar(scale);
+
+    // Center vertically between cmTop and cmaBot
+    box.setFromObject(model);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    model.position.y = (cmTop + cmaBot) / 2 - center.y;
+
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) child.layers.enable(1);
+    });
+
+    inner.add(model);
+  });
+
+  // Service Module — same Z-axis convention
+  loader.load('/models/orion-service-module.glb', (gltf) => {
+    const model = gltf.scene;
+    model.rotation.x = Math.PI / 2;
+
+    const targetH = esmH;
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const scale = targetH / size.y;
+    model.scale.setScalar(scale);
+
+    box.setFromObject(model);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    model.position.y = (esmTop + esmBot) / 2 - center.y;
+
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) child.layers.enable(1);
+    });
+
+    inner.add(model);
+  });
 
   // --- Rotate inner group: +Y → -Z (nose forward for lookAt) ---
   inner.rotation.x = Math.PI / 2;

@@ -153,10 +153,11 @@ scene.add(flightPath.progressPath);
 
 // --- Spacecraft ---
 const { group: spacecraftGroup, marker: spacecraftMarker } =
-  createSpacecraft();
+  createSpacecraft(loadingManager);
 const orionFill = new THREE.HemisphereLight(0xffffff, 0x000000, 0.3);
 orionFill.layers.set(1);
 spacecraftGroup.add(orionFill);
+// Layer 1 for procedural meshes; GLB meshes set their own layers in loader callbacks
 spacecraftGroup.traverse((child) => {
   if ((child as THREE.Mesh).isMesh) child.layers.enable(1);
 });
