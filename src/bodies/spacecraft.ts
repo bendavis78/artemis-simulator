@@ -141,7 +141,7 @@ export function createSpacecraft(loadingManager: THREE.LoadingManager): {
   const loader = new GLTFLoader(loadingManager);
 
   // Crew Module — GLB axis is along Z; rotation.x = π/2 brings +Z → +Y (nose up)
-  loader.load('/models/orion-command-module.glb', (gltf) => {
+  loader.load(`${import.meta.env.BASE_URL}models/orion-command-module.glb`, (gltf) => {
     const model = gltf.scene;
     model.rotation.x = Math.PI / 2;
 
@@ -167,7 +167,7 @@ export function createSpacecraft(loadingManager: THREE.LoadingManager): {
   });
 
   // Service Module — same Z-axis convention
-  loader.load('/models/orion-service-module.glb', (gltf) => {
+  loader.load(`${import.meta.env.BASE_URL}models/orion-service-module.glb`, (gltf) => {
     const model = gltf.scene;
     model.rotation.x = Math.PI / 2;
 
