@@ -23,7 +23,7 @@ export function createOverlay(
     onMoonOrbitalPlaneToggle: (enabled: boolean) => void;
     onReferencePlaneChange: (plane: ReferencePlane) => void;
   },
-): { overlay: HTMLDivElement; liveState: { isLive: boolean }; updatePovMenu: (focus: FocusTarget) => void } {
+): { overlay: HTMLDivElement; liveState: { isLive: boolean }; updatePovMenu: (focus: FocusTarget) => void; syncFovSlider: () => void } {
   const overlay = document.createElement('div');
   overlay.id = 'overlay';
   overlay.innerHTML = `
@@ -330,6 +330,65 @@ export function createOverlay(
       .dropup-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
       .dropup-item.active { color: #4a9eff; }
 
+      /* FOV slider */
+      .fov-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .fov-slider {
+        width: 80px;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: #333;
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+      .fov-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #4a9eff;
+        cursor: pointer;
+        border: 1px solid #fff;
+      }
+      .fov-slider::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #4a9eff;
+        cursor: pointer;
+        border: 1px solid #fff;
+      }
+      .fov-value {
+        font-size: 0.7em;
+        color: #888;
+        min-width: 30px;
+      }
+      .fov-control.disabled .fov-slider {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .fov-control.disabled .fov-slider::-webkit-slider-thumb {
+        background: #666;
+        border-color: #888;
+      }
+      .fov-control.disabled .fov-slider::-moz-range-thumb {
+        background: #666;
+        border-color: #888;
+      }
+      .fov-control.disabled .group-label,
+      .fov-control.disabled .fov-value {
+        opacity: 0.4;
+      }
+      @media (max-width: 600px) {
+        .fov-slider { width: 60px; }
+      }
+
       /* Keyboard reference modal */
       .kb-modal-backdrop {
         display: none;
@@ -364,12 +423,53 @@ export function createOverlay(
       .kb-modal td:first-child { color: #4a9eff; white-space: nowrap; padding-right: 16px; }
       .kb-modal .kb-section { color: #6c9; margin: 10px 0 4px; font-size: 0.9em; }
 
+      /* Speed stepper */
+      .speed-stepper {
+        display: inline-flex;
+        align-items: center;
+        pointer-events: auto;
+      }
+      .speed-stepper .stepper-arrow {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #ccc;
+        padding: 4px 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.75em;
+        cursor: pointer;
+        transition: all 0.15s;
+        line-height: 1;
+      }
+      .speed-stepper .stepper-arrow:hover {
+        background: rgba(255,255,255,0.2);
+        color: #fff;
+      }
+      .speed-stepper .stepper-arrow:first-child {
+        border-radius: 3px 0 0 3px;
+        border-right: none;
+      }
+      .speed-stepper .stepper-arrow:last-child {
+        border-radius: 0 3px 3px 0;
+        border-left: none;
+      }
+      .speed-stepper .stepper-label {
+        background: rgba(74,158,255,0.3);
+        border: 1px solid #4a9eff;
+        color: #4a9eff;
+        padding: 4px 0;
+        font-family: 'Courier New', monospace;
+        font-size: 0.75em;
+        width: 42px;
+        text-align: center;
+        line-height: 1;
+      }
+
       /* Desktop: show inline buttons, hide dropups */
-      .speed-inline, .focus-inline { display: contents; }
+      .focus-inline { display: contents; }
 
       /* Mobile layout */
       @media (max-width: 600px) {
-        .speed-inline, .focus-inline { display: none; }
+        .focus-inline { display: none; }
         .dropup { display: inline-block; }
         .separator { display: none; }
         .info-row { flex-wrap: wrap; gap: 8px; }
@@ -398,25 +498,11 @@ export function createOverlay(
       <div class="controls-row">
         <button class="btn btn-play" id="btn-play">&#9654;</button>
         <button class="btn btn-live" id="btn-live"><span class="live-dot"></span>LIVE</button>
-        <div class="separator"></div>
-        <span class="speed-inline">
-          <span class="group-label">SPEED</span>
-          <button class="btn speed-btn" data-speed="1">1x</button>
-          <button class="btn speed-btn" data-speed="10">10x</button>
-          <button class="btn speed-btn" data-speed="100">100x</button>
-          <button class="btn speed-btn" data-speed="1000">1Kx</button>
-          <button class="btn speed-btn active" data-speed="10000">10Kx</button>
+        <span class="speed-stepper" id="speed-stepper">
+          <button class="stepper-arrow" id="speed-dec">&#9666;</button>
+          <span class="stepper-label" id="speed-label">10Kx</span>
+          <button class="stepper-arrow" id="speed-inc">&#9656;</button>
         </span>
-        <div class="dropup" id="speed-dropup">
-          <button class="dropup-trigger" id="speed-dropup-trigger">10Kx</button>
-          <div class="dropup-menu" id="speed-dropup-menu">
-            <button class="dropup-item speed-btn" data-speed="1">1x</button>
-            <button class="dropup-item speed-btn" data-speed="10">10x</button>
-            <button class="dropup-item speed-btn" data-speed="100">100x</button>
-            <button class="dropup-item speed-btn" data-speed="1000">1Kx</button>
-            <button class="dropup-item speed-btn active" data-speed="10000">10Kx</button>
-          </div>
-        </div>
         <div class="separator"></div>
         <span class="focus-inline">
           <span class="group-label">FOCUS</span>
@@ -439,6 +525,12 @@ export function createOverlay(
           <button class="dropup-trigger" id="pov-dropup-trigger">Free</button>
           <div class="dropup-menu" id="pov-dropup-menu"></div>
         </div>
+        <span class="fov-control" id="fov-control">
+          <span class="group-label">FOV</span>
+          <input type="range" class="fov-slider" id="fov-slider"
+                 min="5" max="120" step="1" value="60">
+          <span class="fov-value" id="fov-value">60°</span>
+        </span>
         <div class="settings-wrap">
           <div class="settings-panel" id="settings-panel">
             <label><input type="checkbox" id="wireframe-toggle"> Wireframe</label>
@@ -531,6 +623,7 @@ export function createOverlay(
           <tr><td>PgUp / PgDn</td><td>Zoom in / out</td></tr>
           <tr><td>Shift+PgUp/PgDn</td><td>Fine-grain zoom</td></tr>
           <tr><td>Home / End</td><td>Zoom min / max</td></tr>
+          <tr><td>F</td><td>Reset FOV to 60° (Free mode)</td></tr>
         </table>
         <div class="kb-section">Other</div>
         <table>
@@ -572,10 +665,7 @@ export function createOverlay(
   const liveBtn = overlay.querySelector('#btn-live') as HTMLButtonElement;
   liveBtn.addEventListener('click', () => {
     liveState.isLive = true;
-    timeline.setSpeed(1);
-    overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelectorAll('.speed-btn[data-speed="1"]').forEach((b) => b.classList.add('active'));
-    speedDropupTrigger.textContent = '1x';
+    setSpeedAndSync(1);
     const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
     timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
     if (!timeline.state.isPlaying) {
@@ -584,8 +674,6 @@ export function createOverlay(
   });
 
   // Drop-up menu toggling
-  const speedDropupTrigger = overlay.querySelector('#speed-dropup-trigger') as HTMLButtonElement;
-  const speedDropupMenu = overlay.querySelector('#speed-dropup-menu') as HTMLDivElement;
   const focusDropupTrigger = overlay.querySelector('#focus-dropup-trigger') as HTMLButtonElement;
   const focusDropupMenu = overlay.querySelector('#focus-dropup-menu') as HTMLDivElement;
 
@@ -598,17 +686,13 @@ export function createOverlay(
   focusDropupTrigger.textContent = focusLabel[cameraController.focusTarget];
   povDropupTrigger.textContent = modeLabel[cameraController.cameraMode];
 
-  const allDropupMenus = [speedDropupMenu, focusDropupMenu, povDropupMenu];
+  const allDropupMenus = [focusDropupMenu, povDropupMenu];
   function closeAllDropups(except?: HTMLElement): void {
     for (const menu of allDropupMenus) {
       if (menu !== except) menu.classList.remove('open');
     }
   }
 
-  speedDropupTrigger.addEventListener('click', () => {
-    closeAllDropups(speedDropupMenu);
-    speedDropupMenu.classList.toggle('open');
-  });
   focusDropupTrigger.addEventListener('click', () => {
     closeAllDropups(focusDropupMenu);
     focusDropupMenu.classList.toggle('open');
@@ -619,27 +703,41 @@ export function createOverlay(
   });
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
-    if (!target.closest('#speed-dropup')) speedDropupMenu.classList.remove('open');
     if (!target.closest('#focus-dropup')) focusDropupMenu.classList.remove('open');
     if (!target.closest('#pov-dropup')) povDropupMenu.classList.remove('open');
   });
 
   const SPEED_LABELS: Record<string, string> = { '1': '1x', '10': '10x', '100': '100x', '1000': '1Kx', '10000': '10Kx' };
 
-  overlay.querySelectorAll('.speed-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const speed = parseInt(
-        (btn as HTMLElement).dataset.speed!
-      ) as PlaybackSpeed;
-      if (speed !== 1) liveState.isLive = false;
-      timeline.setSpeed(speed);
-      overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-      // Activate all matching speed buttons (inline + dropup)
-      overlay.querySelectorAll(`.speed-btn[data-speed="${speed}"]`).forEach((b) => b.classList.add('active'));
-      speedDropupTrigger.textContent = SPEED_LABELS[String(speed)] ?? `${speed}x`;
-      speedDropupMenu.classList.remove('open');
-    });
+  // Speed stepper
+  const speedLabel = overlay.querySelector('#speed-label') as HTMLSpanElement;
+  const speedDecBtn = overlay.querySelector('#speed-dec') as HTMLButtonElement;
+  const speedIncBtn = overlay.querySelector('#speed-inc') as HTMLButtonElement;
+
+  speedDecBtn.addEventListener('click', () => {
+    const curIdx = SPEEDS.indexOf(timeline.state.playbackSpeed as PlaybackSpeed);
+    const newIdx = Math.max(curIdx - 1, 0);
+    if (SPEEDS[newIdx] !== 1) liveState.isLive = false;
+    setSpeedAndSync(SPEEDS[newIdx]);
   });
+
+  speedIncBtn.addEventListener('click', () => {
+    const curIdx = SPEEDS.indexOf(timeline.state.playbackSpeed as PlaybackSpeed);
+    const newIdx = Math.min(curIdx + 1, SPEEDS.length - 1);
+    if (SPEEDS[newIdx] !== 1) liveState.isLive = false;
+    setSpeedAndSync(SPEEDS[newIdx]);
+  });
+
+  const speedStepper = overlay.querySelector('#speed-stepper') as HTMLSpanElement;
+  speedStepper.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const curIdx = SPEEDS.indexOf(timeline.state.playbackSpeed as PlaybackSpeed);
+    const newIdx = e.deltaY < 0
+      ? Math.min(curIdx + 1, SPEEDS.length - 1)
+      : Math.max(curIdx - 1, 0);
+    if (SPEEDS[newIdx] !== 1) liveState.isLive = false;
+    setSpeedAndSync(SPEEDS[newIdx]);
+  }, { passive: false });
 
   // POV modes available per focus target
   // You can't use a POV from the body you're focused on (camera would be at the target)
@@ -680,12 +778,45 @@ export function createOverlay(
         btn.classList.add('active');
         povDropupTrigger.textContent = modeLabel[mode];
         povDropupMenu.classList.remove('open');
+        updateFovVisibility();
       });
     });
   }
 
   // Initialize POV menu for current focus
   updatePovMenu(cameraController.focusTarget);
+
+  // FOV slider for free mode
+  const fovControl = overlay.querySelector('#fov-control') as HTMLSpanElement;
+  const fovSlider = overlay.querySelector('#fov-slider') as HTMLInputElement;
+  const fovValue = overlay.querySelector('#fov-value') as HTMLSpanElement;
+
+  function syncFovSlider(): void {
+    const fov = Math.round(cameraController.camera.fov);
+    fovSlider.value = String(fov);
+    fovValue.textContent = `${fov}°`;
+  }
+
+  function updateFovVisibility(): void {
+    const isFree = cameraController.cameraMode === 'free';
+    fovSlider.disabled = !isFree;
+    fovControl.classList.toggle('disabled', !isFree);
+  }
+
+  fovSlider.addEventListener('input', () => {
+    const fov = parseFloat(fovSlider.value);
+    cameraController.setFreeFOV(fov);
+    fovValue.textContent = `${Math.round(fov)}°`;
+  });
+
+  // Double-click to reset FOV to default
+  fovSlider.addEventListener('dblclick', () => {
+    cameraController.setFreeFOV(60);
+    syncFovSlider();
+  });
+
+  syncFovSlider();
+  updateFovVisibility();
 
   overlay.querySelectorAll('.focus-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -697,6 +828,7 @@ export function createOverlay(
       focusDropupTrigger.textContent = focusLabel[focus];
       focusDropupMenu.classList.remove('open');
       updatePovMenu(focus);
+      updateFovVisibility();
     });
   });
 
@@ -742,9 +874,7 @@ export function createOverlay(
 
   function setSpeedAndSync(speed: PlaybackSpeed): void {
     timeline.setSpeed(speed);
-    overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelectorAll(`.speed-btn[data-speed="${speed}"]`).forEach((b) => b.classList.add('active'));
-    speedDropupTrigger.textContent = SPEED_LABELS[String(speed)] ?? `${speed}x`;
+    speedLabel.textContent = SPEED_LABELS[String(speed)] ?? `${speed}x`;
   }
 
   function setFocusAndSync(focus: FocusTarget): void {
@@ -753,6 +883,7 @@ export function createOverlay(
     overlay.querySelectorAll(`.focus-btn[data-focus="${focus}"]`).forEach((b) => b.classList.add('active'));
     focusDropupTrigger.textContent = focusLabel[focus];
     updatePovMenu(focus);
+    updateFovVisibility();
   }
 
   function setModeAndSync(mode: CameraMode): void {
@@ -760,6 +891,7 @@ export function createOverlay(
     povDropupMenu.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
     povDropupMenu.querySelectorAll(`.mode-btn[data-mode="${mode}"]`).forEach((b) => b.classList.add('active'));
     povDropupTrigger.textContent = modeLabel[mode];
+    updateFovVisibility();
   }
 
   document.addEventListener('keydown', (e) => {
@@ -838,6 +970,13 @@ export function createOverlay(
     // Home/End: zoom all the way in/out
     if (e.key === 'Home') { e.preventDefault(); cameraController.zoomToLimit('in'); return; }
     if (e.key === 'End') { e.preventDefault(); cameraController.zoomToLimit('out'); return; }
+
+    // f: reset FOV to default (free mode only)
+    if (e.key === 'f' && cameraController.cameraMode === 'free') {
+      cameraController.setFreeFOV(60);
+      syncFovSlider();
+      return;
+    }
 
     // e: focus earth
     if (e.key === 'e') { setFocusAndSync('earth'); return; }
@@ -984,23 +1123,17 @@ export function createOverlay(
   debugValuesContainer.classList.toggle('visible', debugValuesToggle.checked);
 
   // Sync UI to restored timeline state
-  const restoredSpeed = String(timeline.state.playbackSpeed);
-  overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-  overlay.querySelectorAll(`.speed-btn[data-speed="${restoredSpeed}"]`).forEach((b) => b.classList.add('active'));
-  speedDropupTrigger.textContent = SPEED_LABELS[restoredSpeed] ?? `${restoredSpeed}x`;
+  speedLabel.textContent = SPEED_LABELS[String(timeline.state.playbackSpeed)] ?? `${timeline.state.playbackSpeed}x`;
 
   // If live mode was saved, restore it
   if (liveState.isLive) {
     const nowMET = (Date.now() - MISSION_START_UTC.getTime()) / 3600000;
     timeline.setMET(Math.max(0, Math.min(nowMET, MISSION_DURATION_HOURS)));
-    timeline.setSpeed(1);
-    overlay.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('active'));
-    overlay.querySelectorAll('.speed-btn[data-speed="1"]').forEach((b) => b.classList.add('active'));
-    speedDropupTrigger.textContent = '1x';
+    setSpeedAndSync(1);
     if (!timeline.state.isPlaying) timeline.togglePlayPause();
   }
 
-  return { overlay, liveState, updatePovMenu };
+  return { overlay, liveState, updatePovMenu, syncFovSlider };
 }
 
 let saveCounter = 0;

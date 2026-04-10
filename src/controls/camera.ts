@@ -18,6 +18,7 @@ interface CameraState {
   offsetZ: number;
   targetDistance: number;
   targetFOV?: number;
+  freeFOV?: number;
 }
 
 interface FocusConfig {
@@ -72,6 +73,11 @@ export class CameraController {
   private static readonly MAX_FOV = 90;
   private targetFOV: number = CameraController.DEFAULT_FOV;
 
+  // Free-mode FOV (user-adjustable via slider)
+  static readonly FREE_MIN_FOV = 5;
+  static readonly FREE_MAX_FOV = 120;
+  private freeModeTargetFOV: number = CameraController.DEFAULT_FOV;
+
   // Deferred restore applied on first update() after body positions are set
   private pendingRestore: CameraState | null = null;
   private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -115,6 +121,7 @@ export class CameraController {
       offsetZ: offset.z,
       targetDistance: this.targetDistance,
       targetFOV: this.targetFOV,
+      freeFOV: this.freeModeTargetFOV,
     };
     localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(state));
   }
@@ -143,10 +150,15 @@ export class CameraController {
     const rawMode = state.cameraMode ?? 'free';
     this.cameraMode = rawMode === ('moon-near-side' as string) ? 'earth-pov' : rawMode;
     this.camera.up.copy(PLANE_NORMALS[state.referencePlane]());
+    this.freeModeTargetFOV = state.freeFOV ?? CameraController.DEFAULT_FOV;
     if (this.cameraMode !== 'free') {
       this.controls.enableRotate = false;
       this.controls.enablePan = false;
       this.targetFOV = state.targetFOV ?? CameraController.POV_INITIAL_FOV;
+      this.camera.fov = this.targetFOV;
+      this.camera.updateProjectionMatrix();
+    } else {
+      this.targetFOV = this.freeModeTargetFOV;
       this.camera.fov = this.targetFOV;
       this.camera.updateProjectionMatrix();
     }
@@ -333,12 +345,29 @@ export class CameraController {
       this.controls.enablePan = false;
       this.targetFOV = CameraController.POV_INITIAL_FOV;
     } else {
-      // Restore default FOV when leaving POV mode
-      this.targetFOV = CameraController.DEFAULT_FOV;
+      // Restore user's free-mode FOV when leaving POV mode
+      this.targetFOV = this.freeModeTargetFOV;
       this.controls.enableRotate = true;
       this.controls.enablePan = true;
     }
     this.saveState();
+  }
+
+  /** Set FOV for free camera mode (from slider). */
+  setFreeFOV(fov: number): void {
+    this.freeModeTargetFOV = THREE.MathUtils.clamp(
+      fov,
+      CameraController.FREE_MIN_FOV,
+      CameraController.FREE_MAX_FOV,
+    );
+    if (this.cameraMode === 'free') {
+      this.targetFOV = this.freeModeTargetFOV;
+    }
+    this.scheduleSave();
+  }
+
+  getFreeFOV(): number {
+    return this.freeModeTargetFOV;
   }
 
   setReferencePlane(plane: ReferencePlane): void {
@@ -398,9 +427,9 @@ export class CameraController {
         const dir = this.camera.position.clone().sub(this.controls.target).normalize();
         this.camera.position.copy(this.controls.target).addScaledVector(dir, newDistance);
       }
-      // Restore default FOV if it drifted (e.g. after exiting POV mode)
-      if (Math.abs(this.camera.fov - CameraController.DEFAULT_FOV) > 0.01) {
-        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, CameraController.DEFAULT_FOV, this.ZOOM_LERP);
+      // Smooth FOV toward user-set free-mode FOV
+      if (Math.abs(this.camera.fov - this.freeModeTargetFOV) > 0.01) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, this.freeModeTargetFOV, this.ZOOM_LERP);
         this.camera.updateProjectionMatrix();
       }
     }

@@ -168,7 +168,7 @@ let orionVisible = true;
 const timeline = new Timeline();
 
 // --- UI ---
-const { liveState, updatePovMenu } = createOverlay(timeline, cameraController, {
+const { liveState, updatePovMenu, syncFovSlider } = createOverlay(timeline, cameraController, {
   onWireframeToggle(enabled) {
     earthMaterial.wireframe = enabled;
     earthMaterial.uniforms.uWireframe.value = enabled ? 1.0 : 0.0;
@@ -348,6 +348,7 @@ function animate() {
   const moonDir = moonPos.clone().normalize();
   const phaseAngle = THREE.MathUtils.radToDeg(sunDir.angleTo(moonDir));
   updateOverlay(timeline, liveState, { distEarth, distMoon, speed, phaseAngle });
+  syncFovSlider();
   const debugZoom = cameraController.cameraMode !== 'free'
     ? `FOV ${camera.fov.toFixed(1)}°`
     : camera.position.distanceTo(cameraController.controls.target).toFixed(1);
